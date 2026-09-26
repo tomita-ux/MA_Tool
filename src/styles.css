@@ -1,0 +1,271 @@
+@import 'tailwindcss';
+
+/*
+ * MA Compass design tokens.
+ * Palette: cool "chart-room" neutrals with a compass-teal accent; deep ink navigation rail.
+ * Chart series use the validated categorical palette (slots 1–8), stepped separately for dark.
+ */
+:root {
+  color-scheme: light;
+  --bg: #eef2f1;
+  --surface: #ffffff;
+  --surface-2: #f6f8f8;
+  --surface-3: #eaefee;
+  --ink: #0f1b1e;
+  --ink-2: #47565a;
+  --muted: #7d898c;
+  --line: #dde4e3;
+  --line-strong: #c5cfce;
+  --accent: #0b6b73;
+  --accent-hover: #095a61;
+  --accent-ink: #ffffff;
+  --accent-soft: #dff0ef;
+  --rail: #0e1c20;
+  --rail-2: #16282d;
+  --rail-ink: #c9d8d7;
+  --rail-muted: #7f9699;
+  --rail-active: #1f3a40;
+  --grid: #e6ebea;
+  --axis: #c5cfce;
+
+  --good: #0ca30c;
+  --good-ink: #006300;
+  --warning: #fab219;
+  --warning-ink: #8a5a00;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --critical-ink: #b02a2a;
+
+  --c0: #9aa4a6;
+  --c1: #2a78d6;
+  --c2: #eb6834;
+  --c3: #1baf7a;
+  --c4: #eda100;
+  --c5: #e87ba4;
+  --c6: #008300;
+  --c7: #4a3aa7;
+  --c8: #e34948;
+
+  --div-pos: #1c5cab;
+  --div-mid: #f0efec;
+  --div-neg: #c73a39;
+
+  --shadow-pop: 0 12px 32px -12px rgb(15 27 30 / 0.25), 0 2px 6px -2px rgb(15 27 30 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0a1113;
+    --surface: #121a1d;
+    --surface-2: #172124;
+    --surface-3: #1d292d;
+    --ink: #eef3f2;
+    --ink-2: #aab7b8;
+    --muted: #7b898b;
+    --line: #243236;
+    --line-strong: #33454a;
+    --accent: #4fc2c9;
+    --accent-hover: #74d2d8;
+    --accent-ink: #062427;
+    --accent-soft: #123a3e;
+    --rail: #070d0f;
+    --rail-2: #0e181b;
+    --rail-ink: #c9d8d7;
+    --rail-muted: #6f8588;
+    --rail-active: #183135;
+    --grid: #1f2b2e;
+    --axis: #33454a;
+    --good-ink: #3fcf3f;
+    --warning-ink: #fab219;
+    --critical-ink: #ef7a7a;
+    --c0: #6b7678;
+    --c1: #3987e5;
+    --c2: #d95926;
+    --c3: #199e70;
+    --c4: #c98500;
+    --c5: #d55181;
+    --c6: #008300;
+    --c7: #9085e9;
+    --c8: #e66767;
+    --div-pos: #5598e7;
+    --div-mid: #2a3436;
+    --div-neg: #e66767;
+    --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0a1113;
+  --surface: #121a1d;
+  --surface-2: #172124;
+  --surface-3: #1d292d;
+  --ink: #eef3f2;
+  --ink-2: #aab7b8;
+  --muted: #7b898b;
+  --line: #243236;
+  --line-strong: #33454a;
+  --accent: #4fc2c9;
+  --accent-hover: #74d2d8;
+  --accent-ink: #062427;
+  --accent-soft: #123a3e;
+  --rail: #070d0f;
+  --rail-2: #0e181b;
+  --rail-ink: #c9d8d7;
+  --rail-muted: #6f8588;
+  --rail-active: #183135;
+  --grid: #1f2b2e;
+  --axis: #33454a;
+  --good-ink: #3fcf3f;
+  --warning-ink: #fab219;
+  --critical-ink: #ef7a7a;
+  --c0: #6b7678;
+  --c1: #3987e5;
+  --c2: #d95926;
+  --c3: #199e70;
+  --c4: #c98500;
+  --c5: #d55181;
+  --c6: #008300;
+  --c7: #9085e9;
+  --c8: #e66767;
+  --div-pos: #5598e7;
+  --div-mid: #2a3436;
+  --div-neg: #e66767;
+  --shadow-pop: 0 16px 40px -12px rgb(0 0 0 / 0.6), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-rail: var(--rail);
+  --color-rail-2: var(--rail-2);
+  --color-rail-ink: var(--rail-ink);
+  --color-rail-muted: var(--rail-muted);
+  --color-rail-active: var(--rail-active);
+  --color-good: var(--good);
+  --color-good-ink: var(--good-ink);
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-serious: var(--serious);
+  --color-critical: var(--critical);
+  --color-critical-ink: var(--critical-ink);
+  --font-sans: 'IBM Plex Sans JP', system-ui, -apple-system, 'Hiragino Sans', 'Yu Gothic UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow-pop: var(--shadow-pop);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Entry animations. Resting state is the element's normal style, so nothing can stay hidden. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.page-in {
+  animation: page-in 200ms ease-out;
+}
+@keyframes cell-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+.cell-in {
+  animation: cell-in 260ms ease-out backwards;
+}
+
+/* Hatched fill for low-sample cells */
+.hatch {
+  background-image: repeating-linear-gradient(135deg, transparent 0 5px, var(--line-strong) 5px 6px);
+}
+
+/* Thin scrollbars inside panels */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* Range input styled on tokens */
+input[type='range'].slider {
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+input[type='range'].slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  cursor: grab;
+}
+input[type='range'].slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  cursor: grab;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

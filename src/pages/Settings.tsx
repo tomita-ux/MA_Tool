@@ -1,0 +1,213 @@
+import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Button, Card, CardHeader, ConfirmButton, Field, PageHeader, cx, inputClass } from '@/components/ui';
+import { TEMPLATE_NAMES } from '@/core/data/workspaces';
+import type { KgiMetric, Segment, Workspace } from '@/core/types';
+import { uid } from '@/lib/format';
+import { useApp, useWorkspace } from '@/store/app';
+import { useToast } from '@/store/toast';
+
+export function Settings() {
+  const ws = useWorkspace();
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader eyebrow={ws.name} title="設定" description="企業ごとの事業情報・KGI・予算・顧客セグメントを管理します。ここでの値は全画面の分析に使われます。" />
+      <CompanyForm key={`c-${ws.id}`} ws={ws} />
+      <SegmentsForm key={`s-${ws.id}`} ws={ws} />
+      <Workspaces />
+    </div>
+  );
+}
+
+function CompanyForm({ ws }: { ws: Workspace }) {
+  const update = useApp((s) => s.updateWorkspace);
+  const notify = useToast((s) => s.notify);
+  const [f, setF] = useState({
+    name: ws.name,
+    industry: ws.industry,
+    model: ws.model,
+    kgiMetric: ws.kgi.metric,
+    kgiLabel: ws.kgi.label,
+    target: String(ws.kgi.monthlyTarget),
+    budget: String(ws.monthlyBudget),
+    aov: String(ws.aov),
+    cycleDays: String(ws.cycleDays),
+  });
+  const [error, setError] = useState('');
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
+
+  const save = () => {
+    const nums = { target: Number(f.target), budget: Number(f.budget), aov: Number(f.aov), cycleDays: Number(f.cycleDays) };
+    if (!f.name.trim()) return setError('企業名を入力してください。');
+    if (Object.values(nums).some((n) => !Number.isFinite(n) || n <= 0)) return setError('目標・予算・単価・検討期間は 0 より大きい数値で入力してください。');
+    update({
+      name: f.name.trim(),
+      industry: f.industry.trim(),
+      model: f.model,
+      kgi: { metric: f.kgiMetric, label: f.kgiLabel.trim() || (f.kgiMetric === 'revenue' ? '売上' : 'CV'), monthlyTarget: nums.target },
+      monthlyBudget: nums.budget,
+      aov: nums.aov,
+      cycleDays: nums.cycleDays,
+    });
+    setError('');
+    notify('企業情報を保存しました');
+  };
+
+  return (
+    <Card>
+      <CardHeader title="企業情報・KGI" actions={<Button variant="primary" size="sm" onClick={save}>保存</Button>} />
+      <div className="grid gap-4 px-5 pb-5 sm:grid-cols-2 xl:grid-cols-3">
+        <Field label="企業名" htmlFor="s-name"><input id="s-name" className={inputClass} value={f.name} onChange={set('name')} /></Field>
+        <Field label="業種" htmlFor="s-ind"><input id="s-ind" className={inputClass} value={f.industry} onChange={set('industry')} /></Field>
+        <Field label="事業モデル" htmlFor="s-model">
+          <select id="s-model" className={inputClass} value={f.model} onChange={set('model')}>
+            <option value="btob">BtoB</option>
+            <option value="btoc">BtoC</option>
+            <option value="local">地域ビジネス</option>
+          </select>
+        </Field>
+        <Field label="KGI の種類" htmlFor="s-kgi">
+          <select id="s-kgi" className={inputClass} value={f.kgiMetric} onChange={(e) => setF((x) => ({ ...x, kgiMetric: e.target.value as KgiMetric }))}>
+            <option value="conversions">CV 数（問い合わせ・予約など）</option>
+            <option value="revenue">売上</option>
+          </select>
+        </Field>
+        <Field label="KGI の名称" htmlFor="s-kgil"><input id="s-kgil" className={inputClass} value={f.kgiLabel} onChange={set('kgiLabel')} /></Field>
+        <Field label={`KGI 月間目標（${f.kgiMetric === 'revenue' ? '円' : '件'}）`} htmlFor="s-target"><input id="s-target" inputMode="numeric" className={cx(inputClass, 'tnum')} value={f.target} onChange={set('target')} /></Field>
+        <Field label="月間広告予算（円）" htmlFor="s-budget"><input id="s-budget" inputMode="numeric" className={cx(inputClass, 'tnum')} value={f.budget} onChange={set('budget')} /></Field>
+        <Field label="CV あたりの平均単価（円）" htmlFor="s-aov" hint="BtoB はリード 1 件あたりの見込み売上"><input id="s-aov" inputMode="numeric" className={cx(inputClass, 'tnum')} value={f.aov} onChange={set('aov')} /></Field>
+        <Field label="検討期間（日）" htmlFor="s-cycle" hint="初回接点から CV までの典型的な日数"><input id="s-cycle" inputMode="numeric" className={cx(inputClass, 'tnum')} value={f.cycleDays} onChange={set('cycleDays')} /></Field>
+      </div>
+      {error && <p className="px-5 pb-4 text-xs text-critical-ink">{error}</p>}
+    </Card>
+  );
+}
+
+function SegmentsForm({ ws }: { ws: Workspace }) {
+  const update = useApp((s) => s.updateWorkspace);
+  const notify = useToast((s) => s.notify);
+  const [rows, setRows] = useState<Segment[]>(ws.segments);
+  const total = rows.reduce((a, s) => a + s.share, 0);
+  const valid = Math.abs(total - 1) < 0.005 && rows.every((r) => r.name.trim()) && rows.length > 0;
+  const edit = (i: number, patch: Partial<Segment>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+
+  return (
+    <Card>
+      <CardHeader
+        title="顧客セグメント（ペルソナ）"
+        subtitle="ジャーニー・オーディエンス分析の行になります。構成比の合計は 100% にしてください。"
+        actions={
+          <>
+            <Button size="sm" onClick={() => setRows((r) => [...r, { id: uid('seg'), name: '新しいセグメント', description: '', share: 0, cvrMult: 1, aovMult: 1 }])}>
+              <Plus size={13} /> 追加
+            </Button>
+            <Button size="sm" variant="primary" disabled={!valid} onClick={() => { update({ segments: rows }); notify('セグメントを保存しました'); }}>
+              保存
+            </Button>
+          </>
+        }
+      />
+      <div className="overflow-x-auto px-5 pb-4">
+        <table className="w-full min-w-[640px] text-[13px]">
+          <thead>
+            <tr className="border-b border-line text-left text-xs text-ink-2">
+              <th className="py-2 pr-3 font-medium">名称</th>
+              <th className="py-2 pr-3 font-medium">説明</th>
+              <th className="w-28 py-2 pr-3 font-medium">構成比（%）</th>
+              <th className="w-10" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((s, i) => (
+              <tr key={s.id} className="border-b border-line last:border-0">
+                <td className="py-2 pr-3"><input aria-label="セグメント名" className={inputClass} value={s.name} onChange={(e) => edit(i, { name: e.target.value })} /></td>
+                <td className="py-2 pr-3"><input aria-label="説明" className={inputClass} value={s.description} onChange={(e) => edit(i, { description: e.target.value })} /></td>
+                <td className="py-2 pr-3">
+                  <input aria-label="構成比" inputMode="decimal" className={cx(inputClass, 'tnum text-right')} value={Math.round(s.share * 1000) / 10} onChange={(e) => edit(i, { share: Math.max(0, Number(e.target.value) || 0) / 100 })} />
+                </td>
+                <td className="py-2 text-right">
+                  <button type="button" aria-label={`${s.name}を削除`} disabled={rows.length <= 1} onClick={() => setRows((r) => r.filter((_, j) => j !== i))} className="rounded-md p-1.5 text-muted hover:bg-surface-3 hover:text-critical disabled:opacity-40">
+                    <Trash2 size={15} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className={cx('mt-2 text-xs', Math.abs(total - 1) < 0.005 ? 'text-ink-2' : 'text-critical-ink')}>
+          合計 <span className="tnum font-medium">{Math.round(total * 1000) / 10}%</span>
+          {Math.abs(total - 1) >= 0.005 && '（100% にすると保存できます）'}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+function Workspaces() {
+  const workspaces = useApp((s) => s.workspaces);
+  const activeId = useApp((s) => s.activeId);
+  const addWorkspace = useApp((s) => s.addWorkspace);
+  const removeWorkspace = useApp((s) => s.removeWorkspace);
+  const resetAll = useApp((s) => s.resetAll);
+  const notify = useToast((s) => s.notify);
+  const [template, setTemplate] = useState<Workspace['template']>('btob');
+  const [name, setName] = useState('');
+  const location = useLocation();
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (location.hash === '#new') {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      ref.current?.querySelector('input')?.focus();
+    }
+  }, [location.hash]);
+
+  return (
+    <div ref={ref} className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
+      <Card>
+        <CardHeader title="企業を追加" subtitle="テンプレートのモジュール構成・セグメントを初期値として作成します。" />
+        <div className="flex flex-col gap-3 px-5 pb-5">
+          <Field label="企業名" htmlFor="new-ws-name">
+            <input id="new-ws-name" className={inputClass} placeholder="例：株式会社サンプル" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="テンプレート" htmlFor="new-ws-tpl">
+            <select id="new-ws-tpl" className={inputClass} value={template} onChange={(e) => setTemplate(e.target.value as Workspace['template'])}>
+              {Object.entries(TEMPLATE_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </Field>
+          <Button
+            variant="primary"
+            className="self-start"
+            disabled={!name.trim()}
+            onClick={() => {
+              addWorkspace(template, name.trim());
+              setName('');
+              notify('企業を追加し、切り替えました');
+            }}
+          >
+            <Plus size={14} /> 追加して切り替え
+          </Button>
+        </div>
+      </Card>
+      <Card>
+        <CardHeader title="登録済みの企業" />
+        <ul className="flex flex-col px-5 pb-3">
+          {workspaces.map((w) => (
+            <li key={w.id} className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
+              <span className="min-w-0 text-[13px]">
+                <span className="block truncate font-medium">{w.name}{w.id === activeId && <span className="ml-2 text-xs text-accent">表示中</span>}</span>
+                <span className="text-xs text-muted">{w.industry} · {w.enabledModules.length} モジュール</span>
+              </span>
+              {workspaces.length > 1 && <ConfirmButton label="削除" confirmLabel="削除する" onConfirm={() => { removeWorkspace(w.id); notify('企業を削除しました'); }} />}
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
+          <span className="text-xs text-ink-2">すべての変更を破棄して、サンプルの初期状態に戻します。</span>
+          <ConfirmButton label="初期状態に戻す" confirmLabel="戻す" onConfirm={() => { resetAll(); notify('初期状態に戻しました'); }} />
+        </div>
+      </Card>
+    </div>
+  );
+}
