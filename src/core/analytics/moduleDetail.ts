@@ -80,9 +80,15 @@ export interface EngineRow {
 
 export interface TopicRow {
   topic: string;
-  cells: Record<string, 'cited' | 'mentioned' | 'none'>;
+  cells: Record<string, 'cited' | 'mentioned' | 'none' | 'untested'>;
   competitorCited: boolean;
+  /** competitors named in the measured answers */
+  competitors?: string[];
+  /** number of measured queries behind this row (undefined = sample estimate) */
+  queries?: number;
 }
+
+const normEngine = (s: string) => s.toLowerCase().replace(/[\s!-]/g, '');
 
 export function aiCitations(ws: Workspace, module: ModuleManifest, records: MetricRecord[]) {
   const recs = records.filter((r) => r.moduleId === module.id);
@@ -93,6 +99,8 @@ export function aiCitations(ws: Workspace, module: ModuleManifest, records: Metr
     const rate = diag ? diag.mentionRate : (ENGINE_CITATION[c.id] ?? 0.25) * (0.85 + 0.3 * rngFor('cite', ws.id, c.id)());
     return { id: c.id, name: c.name, citationRate: rate, mentions: (m?.impressions ?? 0) * 0.05, clicks: m?.clicks ?? 0, conversions: m?.conversions ?? 0, measured: !!diag };
   });
+  const measured = ws.aiDiagnosis?.queries;
+  if (measured?.length) return { engines, topics: measuredTopics(engines, measured), topicsMeasured: true };
   const topics: TopicRow[] = (ws.aiTopics ?? []).map((topic) => {
     const rng = rngFor('topic', ws.id, topic);
     const cells: TopicRow['cells'] = {};
@@ -102,7 +110,32 @@ export function aiCitations(ws: Workspace, module: ModuleManifest, records: Metr
     }
     return { topic, cells, competitorCited: rng() < 0.6 };
   });
-  return { engines, topics };
+  return { engines, topics, topicsMeasured: false };
+}
+
+const FORM_RANK = { none: 0, indirect: 1, direct: 2 } as const;
+
+/** Topic × engine table from seo-geo-aio-llmo queryMatrix: best result per topic and engine. */
+function measuredTopics(engines: EngineRow[], queries: NonNullable<NonNullable<Workspace['aiDiagnosis']>['queries']>): TopicRow[] {
+  const byTopic = new Map<string, typeof queries>();
+  for (const q of queries) {
+    const key = q.topic ?? q.keyword;
+    byTopic.set(key, [...(byTopic.get(key) ?? []), q]);
+  }
+  return [...byTopic.entries()].map(([topic, qs]) => {
+    const cells: TopicRow['cells'] = {};
+    for (const e of engines) {
+      const hits = qs.filter((q) => normEngine(q.llm) === normEngine(e.name) || normEngine(q.llm) === e.id);
+      if (!hits.length) {
+        cells[e.id] = 'untested';
+        continue;
+      }
+      const best = Math.max(...hits.map((q) => FORM_RANK[q.form]));
+      cells[e.id] = best === 2 ? 'cited' : best === 1 ? 'mentioned' : 'none';
+    }
+    const competitors = [...new Set(qs.flatMap((q) => q.competitors ?? []))];
+    return { topic, cells, competitorCited: competitors.length > 0, competitors, queries: qs.length };
+  });
 }
 
 const FOLLOWERS: Record<string, number> = { instagram: 18000, x: 9500, tiktok: 12000, youtube: 4200, line: 26000 };

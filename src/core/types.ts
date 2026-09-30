@@ -231,6 +231,8 @@ export interface AiDiagnosis {
   engines: { name: string; mentionRate: number; prev?: number; direct?: number; indirect?: number; withLink?: number; accuracy?: number }[];
   referrals: { name: string; sessions: number; prevSessions?: number; cv: number; engagementRate?: number }[];
   roadmap: { id: string; title: string; impact: number; effort: number; category?: string }[];
+  /** measured query × engine results (llmCitationAnalysis.queryMatrix) */
+  queries?: { keyword: string; topic?: string; llm: string; form: 'direct' | 'indirect' | 'none'; withLink: boolean; competitors?: string[] }[];
   /** exploratory / directional / decision-grade */
   measurementTier?: string;
 }

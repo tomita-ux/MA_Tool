@@ -286,12 +286,29 @@ export function fromVisibilityDiagnosis(input: Obj): ConnectorResult {
       .map((r) => ({ id: str(r.id), title: str(r.title), impact: num(r.impact), effort: num(r.effort), category: str(r.category) || undefined })),
     measurementTier: str(scope.measurementTier ?? llm.measurementTier) || undefined,
   };
+  const queries = arr(llm.queryMatrix)
+    .filter(isObj)
+    .filter((q) => str(q.keyword) && str(q.llm) && ['direct', 'indirect', 'none'].includes(str(q.form)))
+    .map((q) => ({
+      keyword: str(q.keyword),
+      topic: str(q.topic) || undefined,
+      llm: str(q.llm),
+      form: str(q.form) as 'direct' | 'indirect' | 'none',
+      withLink: q.withLink === true,
+      competitors: arr(q.competitors).map(str).filter(Boolean),
+    }));
+  if (queries.length) diagnosis.queries = queries;
   return {
     kind: 'diagnosis',
     tool: 'seo-geo-aio-llmo',
     diagnosis,
     label: `可視性診断 ${diagnosis.diagnosedAt}`,
-    notes: [`TVS ${diagnosis.tvs.overall}（${diagnosis.tvs.grade ?? '—'}）、${diagnosis.engines.length} エンジン、改善項目 ${diagnosis.roadmap.length} 件を取り込みます。`, 'エンジン別の言及率は手動クエリによる推定値（探索的）として表示します。'],
+    notes: [
+      `TVS ${diagnosis.tvs.overall}（${diagnosis.tvs.grade ?? '—'}）、${diagnosis.engines.length} エンジン、改善項目 ${diagnosis.roadmap.length} 件を取り込みます。`,
+      queries.length
+        ? `キーワード × エンジンの実測 ${queries.length} 件（${new Set(queries.map((q) => q.topic ?? q.keyword)).size} トピック）を取り込み、トピック別の表を実測で表示します。`
+        : 'エンジン別の言及率は手動クエリによる推定値（探索的）として表示します。トピック別の表は、診断に queryMatrix があると実測になります。',
+    ],
   };
 }
 

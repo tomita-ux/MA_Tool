@@ -119,8 +119,13 @@ function SeoKeywords({ ds }: { ds: Dataset }) {
 }
 
 function AiCitations({ ds, module }: { ds: Dataset; module: ModuleManifest }) {
-  const { engines, topics } = useMemo(() => aiCitations(ds.ws, module, ds.current), [ds, module]);
-  const cell = { cited: { label: '引用', cls: 'bg-[color-mix(in_oklab,var(--c3)_22%,transparent)] text-ink' }, mentioned: { label: '言及', cls: 'bg-surface-3 text-ink-2' }, none: { label: '—', cls: 'text-muted' } };
+  const { engines, topics, topicsMeasured } = useMemo(() => aiCitations(ds.ws, module, ds.current), [ds, module]);
+  const cell = {
+    cited: { label: '引用', cls: 'bg-[color-mix(in_oklab,var(--c3)_22%,transparent)] text-ink' },
+    mentioned: { label: '言及', cls: 'bg-surface-3 text-ink-2' },
+    none: { label: '—', cls: 'text-muted' },
+    untested: { label: '未計測', cls: 'text-[11px] text-muted' },
+  };
   return (
     <Card>
       <CardHeader
@@ -173,11 +178,18 @@ function AiCitations({ ds, module }: { ds: Dataset; module: ModuleManifest }) {
                     <span className={cx('inline-block min-w-10 rounded px-1.5 py-0.5', cell[t.cells[e.id]].cls)}>{cell[t.cells[e.id]].label}</span>
                   </td>
                 ))}
-                <td className="px-3 py-2 text-center">{t.competitorCited ? <Badge tone="critical">あり</Badge> : <span className="text-muted">なし</span>}</td>
+                <td className="px-3 py-2 text-center" title={t.competitors?.join('、') || undefined}>
+                  {t.competitorCited ? <Badge tone="critical">{t.competitors?.length ? `${t.competitors.length} 社` : 'あり'}</Badge> : <span className="text-muted">なし</span>}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+        <p className="mt-2 text-[11px] text-muted">
+          {topicsMeasured
+            ? `トピック別は可視性診断の実測（${topics.reduce((a, t) => a + (t.queries ?? 0), 0)} クエリ）。各トピックで最も良い結果を表示しています。`
+            : 'トピック別はサンプル推定です。seo-geo-aio-llmo の診断に queryMatrix（キーワード × エンジンの実測）があると実測で表示します。'}
+        </p>
       </div>
     </Card>
   );

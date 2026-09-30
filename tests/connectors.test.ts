@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyze } from '@/core/analytics';
+import { aiCitations } from '@/core/analytics/moduleDetail';
 import { evaluateTripwires, modulesForChannel, parseYen, planVsActual } from '@/core/analytics/strategy';
 import { convertNative, isoFromGa } from '@/core/connectors';
 import { normalizeBridgeRows } from '@/core/data/bridge';
@@ -61,6 +62,35 @@ describe('native connectors (format detection)', () => {
     expect(r.diagnosis.engines[0].mentionRate).toBeCloseTo(0.12);
     expect(r.diagnosis.referrals[0].engagementRate).toBeCloseTo(0.712);
     expect(r.diagnosis.axes[0].layer).toBe('B');
+  });
+
+  it('queryMatrix → measured topic × engine table', () => {
+    const r = convertNative(j({
+      meta: { diagnosedAt: '2026-09-20' },
+      tvs: { overall: 60, layerA: 60, layerB: 60 },
+      llmCitationAnalysis: {
+        byLlm: [{ llm: 'ChatGPT', mentionRate: '50%' }],
+        queryMatrix: [
+          { keyword: '法人 生成AI研修', topic: '生成AI研修', llm: 'ChatGPT', form: 'indirect', withLink: false, competitors: ['A社'] },
+          { keyword: '生成AI研修 比較', topic: '生成AI研修', llm: 'ChatGPT', form: 'direct', withLink: true, competitors: ['A社', 'B社'] },
+          { keyword: '法人 生成AI研修', topic: '生成AI研修', llm: 'Gemini', form: 'none', withLink: false },
+          { keyword: 'Excel研修', llm: 'Perplexity', form: 'indirect', withLink: false },
+          { keyword: 'bad', llm: 'ChatGPT', form: 'cited', withLink: true },
+        ],
+      },
+    }));
+    expect(r.kind).toBe('diagnosis');
+    if (r.kind !== 'diagnosis') return;
+    expect(r.diagnosis.queries).toHaveLength(4);
+    expect(r.notes.join()).toMatch(/実測 4 件（2 トピック）/);
+    const w: Workspace = { ...ws('nexa'), enabledModules: [...ws('nexa').enabledModules, 'ai-search'], aiDiagnosis: r.diagnosis };
+    const { topics, topicsMeasured } = aiCitations(w, getModule(w, 'ai-search')!, []);
+    expect(topicsMeasured).toBe(true);
+    const ai = topics.find((t) => t.topic === '生成AI研修')!;
+    expect(ai.cells).toMatchObject({ chatgpt: 'cited', gemini: 'none', claude: 'untested', perplexity: 'untested' });
+    expect(ai.competitors).toEqual(['A社', 'B社']);
+    expect(ai.queries).toBe(3);
+    expect(topics.find((t) => t.topic === 'Excel研修')?.cells.perplexity).toBe('mentioned');
   });
 
   it('sns-dashboard daily pivot → one row per platform per day', () => {
