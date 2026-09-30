@@ -4,12 +4,8 @@ name = "ma-compass"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-09-30"
 
-[vars]
-# Cloudflare Access（Google ログイン）の設定値。デプロイ前に書き換える
-ACCESS_TEAM_DOMAIN = "https://<your-team>.cloudflareaccess.com"
-ACCESS_AUD = "<Access application AUD tag>"
-# 最初の管理者。公開リポジトリに実アドレスを書かず、Cloudflare ダッシュボードの環境変数で設定する
-ADMIN_EMAILS = "<最初の管理者の Google アカウント（カンマ区切り）>"
+# ACCESS_TEAM_DOMAIN / ACCESS_AUD / ADMIN_EMAILS は公開リポジトリに書かず、Pages のシークレットとして登録する
+# （scripts/cf-setup.mjs が自動登録。手動の場合: npx wrangler pages secret put ACCESS_AUD --project-name ma-compass）
 
 [[d1_databases]]
 binding = "DB"

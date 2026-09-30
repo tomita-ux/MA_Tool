@@ -169,13 +169,16 @@ npm run cf:deploy                          # ビルド → D1 マイグレーシ
 3. ポリシー：「許可」— 利用者のメールアドレス（または自社ドメイン）を指定。**支援先の担当者を追加するときは、ここにもメールアドレスを追加**
 4. 作成後に表示される **Application Audience (AUD) タグ** を控える
 
-### 8.5 環境変数（Pages → 設定 → 環境変数）
-| 変数 | 値 |
-|---|---|
-| `ACCESS_TEAM_DOMAIN` | `https://<チーム名>.cloudflareaccess.com` |
-| `ACCESS_AUD` | 8.4 の AUD タグ |
-| `ADMIN_EMAILS` | 最初の管理者の Google アカウント（公開リポジトリには書かない） |
+### 8.5 シークレット（認証の設定値）
+`wrangler.toml` があると Pages の設定はファイルが正となりダッシュボードの環境変数は使われないため、認証の設定値は**シークレット**として登録します（公開リポジトリにも残りません）。
 
+```bash
+npx wrangler pages secret put ACCESS_TEAM_DOMAIN --project-name ma-compass   # https://<チーム名>.cloudflareaccess.com
+npx wrangler pages secret put ACCESS_AUD --project-name ma-compass           # 8.4 の AUD タグ
+npx wrangler pages secret put ADMIN_EMAILS --project-name ma-compass         # 最初の管理者の Google アカウント
+```
+
+**8.3〜8.5 は `node scripts/cf-setup.mjs` で一括実行できます**（API トークンと Google のクライアント ID/シークレットを環境変数で渡す。スクリプト冒頭に必要な権限を記載）。
 設定後にもう一度 `npm run cf:deploy`。初回ログイン時にサンプルの支援先 3 社が作られます（不要なら設定から削除）。
 
 ### 8.6 支援先の担当者（閲覧者）を追加する
