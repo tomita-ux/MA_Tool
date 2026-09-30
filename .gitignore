@@ -8,3 +8,5 @@ artifact
 .env.local
 .env.*.local
 !.env.example
+.dev.vars
+.wrangler

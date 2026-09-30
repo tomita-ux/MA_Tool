@@ -10,6 +10,7 @@ import type { Dataset } from '@/core/data/dataset';
 import { compact, count, pct, yen } from '@/lib/format';
 import { useApp } from '@/store/app';
 import { useAnalysis, useCreateInitiative, useNames } from '@/store/hooks';
+import { useCanEdit } from '@/remote/session';
 
 export function Strategy() {
   const { ds, an } = useAnalysis();
@@ -169,6 +170,7 @@ function BudgetSimulator({ ds, curves }: { ds: Dataset; curves: Curve[] }) {
   const names = useNames();
   const updateWorkspace = useApp((s) => s.updateWorkspace);
   const create = useCreateInitiative();
+  const canEdit = useCanEdit();
   const reduce = useReducedMotion();
   const current = useMemo(() => currentAllocation(curves), [curves]);
   const [alloc, setAlloc] = useState<Record<string, number>>(current);
@@ -242,6 +244,7 @@ function BudgetSimulator({ ds, curves }: { ds: Dataset; curves: Curve[] }) {
           <label htmlFor="budget" className="text-xs text-ink-2">月間予算（万円）</label>
           <input
             id="budget"
+            readOnly={!canEdit}
             inputMode="decimal"
             className={cx(inputClass, 'mt-1 tnum text-[15px] font-semibold')}
             value={budgetInput}
@@ -312,9 +315,11 @@ function BudgetSimulator({ ds, curves }: { ds: Dataset; curves: Curve[] }) {
               </li>
             );
           })}
-          <Button className="self-start" onClick={addPlan}>
-            <Plus size={14} /> この配分案を施策として起票
-          </Button>
+          {canEdit && (
+            <Button className="self-start" onClick={addPlan}>
+              <Plus size={14} /> この配分案を施策として起票
+            </Button>
+          )}
         </ul>
 
         <div className="flex min-w-0 flex-col gap-2">

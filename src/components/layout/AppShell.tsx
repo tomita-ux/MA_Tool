@@ -10,6 +10,8 @@ import { enabledModules, moduleColors } from '@/modules';
 import { useApp, useInitiatives, useWorkspace, type Theme } from '@/store/app';
 import { useAnalysis } from '@/store/hooks';
 import { useToast } from '@/store/toast';
+import { useCanEdit, useSession } from '@/remote/session';
+
 
 const IS_DEMO = import.meta.env.VITE_DEMO === 'true';
 
@@ -87,6 +89,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   const mods = enabledModules(ws);
   const colors = moduleColors(ws);
   const openCount = initiatives.filter((i) => i.status !== 'done').length;
+  const canEdit = useCanEdit();
+  const session = useSession();
   const highCount = an.insights.filter((i) => i.priority === 'high').length;
   const firedCount = an.insights.filter((i) => i.kind === 'tripwire').length;
   const railBadge = (n: number, tone: 'accent' | 'critical' = 'accent') =>
@@ -111,9 +115,11 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      <div className="mt-4">
-        <NavItem to="/clients" icon={<Building2 size={16} />}>支援先一覧</NavItem>
-      </div>
+      {canEdit && (
+        <div className="mt-4">
+          <NavItem to="/clients" icon={<Building2 size={16} />}>支援先一覧</NavItem>
+        </div>
+      )}
 
       <RailLabel>経営戦略</RailLabel>
       <NavItem to="/plan" icon={<Flag size={16} />} badge={railBadge(firedCount, 'critical')}>経営戦略</NavItem>
@@ -147,13 +153,22 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         ))}
       </AnimatePresence>
 
-      <RailLabel>管理</RailLabel>
-      <NavItem to="/connect" icon={<Plug size={16} />}>連携ハブ</NavItem>
-      <NavItem to="/catalog" icon={<Blocks size={16} />}>モジュールカタログ</NavItem>
-      <NavItem to="/settings" icon={<Settings size={16} />}>設定</NavItem>
+      {canEdit && (
+        <>
+          <RailLabel>管理</RailLabel>
+          <NavItem to="/connect" icon={<Plug size={16} />}>連携ハブ</NavItem>
+          <NavItem to="/catalog" icon={<Blocks size={16} />}>モジュールカタログ</NavItem>
+          <NavItem to="/settings" icon={<Settings size={16} />}>設定</NavItem>
+        </>
+      )}
 
       <div className="mt-auto px-2.5 pt-6 text-[11px] leading-relaxed text-rail-muted">
-        {IS_DEMO ? 'インターフェースデモ（サンプルデータ）' : 'MVP v0.1 · サンプルデータ'}
+        {IS_DEMO ? 'インターフェースデモ（サンプルデータ）' : session.mode === 'remote' ? `${session.email}（${canEdit ? '管理者' : '閲覧者'}）` : 'MVP · ブラウザ保存'}
+        {session.mode === 'remote' && (
+          <a href="/cdn-cgi/access/logout" className="mt-1 block text-rail-ink underline">
+            ログアウト
+          </a>
+        )}
       </div>
     </nav>
   );
@@ -188,7 +203,7 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
         </button>
         <WorkspaceSwitcher />
         <div className="ml-auto flex items-center gap-2">
-          <Badge tone="outline" className="hidden sm:inline-flex">サンプルデータ</Badge>
+          <SyncBadge />
           <Segmented<RangeDays>
             label="期間"
             value={range}
@@ -220,6 +235,7 @@ function WorkspaceSwitcher() {
   const setActive = useApp((s) => s.setActive);
   const ws = useWorkspace();
   const [open, setOpen] = useState(false);
+  const canEdit = useCanEdit();
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -291,7 +307,7 @@ function WorkspaceSwitcher() {
                 </button>
               </li>
             ))}
-            <li className="mt-1 border-t border-line pt-1">
+            {canEdit && <li className="mt-1 border-t border-line pt-1">
               <button
                 type="button"
                 onClick={() => {
@@ -312,7 +328,7 @@ function WorkspaceSwitcher() {
               >
                 支援先一覧を見る
               </button>
-            </li>
+            </li>}
           </motion.ul>
         )}
       </AnimatePresence>
@@ -320,3 +336,17 @@ function WorkspaceSwitcher() {
   );
 }
 
+
+function SyncBadge() {
+  const mode = useSession((s) => s.mode);
+  const sync = useSession((s) => s.sync);
+  const role = useSession((s) => s.role);
+  if (mode === 'local') return <Badge tone="outline" className="hidden sm:inline-flex">ブラウザ保存</Badge>;
+  if (role === 'viewer') return <Badge tone="outline" className="hidden sm:inline-flex">閲覧のみ</Badge>;
+  const label = { idle: 'クラウド保存', saving: '保存中…', saved: '保存済み', error: '保存できませんでした' }[sync];
+  return (
+    <Badge tone={sync === 'error' ? 'critical' : 'outline'} className="hidden sm:inline-flex">
+      {label}
+    </Badge>
+  );
+}

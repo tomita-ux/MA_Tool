@@ -2,7 +2,7 @@
 
 | 項目 | 内容 |
 |---|---|
-| 文書バージョン | v0.1 |
+| 文書バージョン | v0.2（無料プラン・Google ログイン・2 ロールで確定） |
 | 作成日 | 2026-09-30 |
 | 前提 | MA Compass と既存 6 ツールを、ログイン認証つきで公開する。複数の支援先企業で使う |
 | 関連文書 | [統合設計書](./05-integration-design.md) |
@@ -101,8 +101,99 @@ flowchart TB
 4. **seo-dashboard・sns-dashboard**：秘密情報の移行と D1 化のあとで公開
 5. **自動同期**：Cron Triggers で日次にブリッジ API を取得
 
-## 7. 決めていただきたいこと
 
-1. ログイン方法（Google アカウント / メールのワンタイムコード / 既存の IdP）
-2. 支援先企業の担当者にも閲覧権限を渡すか（渡す場合は「自社のみ・読み取り専用」ロールを用意）
-3. Cloudflare のアカウント（プラン）と独自ドメイン
+---
+
+## 7. 決定事項（2026-09-30）
+
+| 項目 | 決定 |
+|---|---|
+| ログイン | Google アカウント（Cloudflare Access の Google 連携） |
+| 権限 | **管理者**：支援先の登録を含む全機能・全支援先 ／ **閲覧者**：割り当てた支援先（自社）のデータのみ、読み取り専用 |
+| プラン | Cloudflare 無料プラン |
+| ドメイン | 当面は `*.pages.dev`。ブランド名決定後に独自ドメインを検討 |
+
+### 7.1 無料プランでできること・できないこと
+
+| 対象 | 無料プランでの可否 | 補足 |
+|---|---|---|
+| MA Compass の画面（Pages） | ✅ | 静的配信は無制限 |
+| API（Pages Functions） | ✅ | Workers 無料枠：1 日 10 万リクエスト |
+| データベース（D1） | ✅ | 無料枠内で十分（支援先・施策・取り込みデータ） |
+| Google ログイン（Access） | ✅ | **50 ユーザーまで無料**。登録時に支払い方法の入力を求められるが、無料プランでは課金されない |
+| 既存ツールの常時稼働（Containers） | ❌ | Workers 有料プラン（月 5 ドル）が必要 |
+| 既存ツールの公開（Cloudflare Tunnel） | ✅ | **手元の PC で起動中のツールを Access 付きで公開**できる（PC がオフだと見られない） |
+
+→ **MA Compass 本体は無料で常時公開**し、既存ツールは当面 **Cloudflare Tunnel（無料）** で公開します。常時稼働が必要になった時点で、Containers（月 5 ドル）または Google Cloud Run（無料枠あり）へ移します。
+
+参考：[Zero Trust 無料プラン](https://community.cloudflare.com/t/zero-trust-free-plan/402097)、[Workers の料金](https://developers.cloudflare.com/workers/platform/pricing/)、[Containers の料金](https://developers.cloudflare.com/containers/platform/pricing/)
+
+### 7.2 実装済みの仕組み（本リポジトリ）
+
+| 部品 | ファイル | 内容 |
+|---|---|---|
+| API | `server/api.ts`、`functions/api/[[route]].ts` | `/api/me`・`/api/state`・支援先の保存/削除・取り込みデータ・ユーザー管理。すべて権限チェック付き |
+| 認証 | `server/auth.ts` | Access の JWT を公開鍵で検証（ヘッダーのメールアドレスは信用しない）。`ADMIN_EMAILS` は常に管理者 |
+| DB | `migrations/0001_init.sql` | users / user_workspaces / workspaces / imports / audit_log（変更履歴） |
+| 画面 | `src/remote/*` | ログイン中のユーザーのデータだけを読み込み、管理者の変更を自動保存。閲覧者は編集操作・管理画面を非表示 |
+| テスト | `tests/api.test.ts` | 未ログイン・未登録・閲覧者の書き込み拒否・他社データの非表示などを実 SQL で検証 |
+
+閲覧者の制限は画面だけでなく API 側でも強制しています（画面を改変しても書き込み・他社データの取得はできません）。
+
+---
+
+## 8. 公開手順（無料プラン）
+
+所要時間の目安：30〜60 分。Cloudflare と Google Cloud のアカウントが必要です。
+
+### 8.1 Google ログインの準備（Google Cloud）
+1. Google Cloud コンソール → 「API とサービス」→「OAuth 同意画面」を作成（外部・アプリ名 MA Compass）
+2. 「認証情報」→「OAuth クライアント ID」（ウェブアプリケーション）を作成
+3. 承認済みリダイレクト URI に `https://<チーム名>.cloudflareaccess.com/cdn-cgi/access/callback` を登録
+4. クライアント ID とシークレットを控える
+
+### 8.2 Cloudflare Zero Trust（Access）
+1. Cloudflare ダッシュボード → Zero Trust → チーム名を決める（例：`ma-compass`）→ **Free プラン**を選択
+2. 設定 → 認証 → ログイン方法に **Google** を追加（8.1 の ID とシークレット）
+
+### 8.3 D1 と Pages
+```bash
+npx wrangler login
+npx wrangler d1 create ma-compass          # 表示された database_id を wrangler.toml に記入
+npm run cf:deploy                          # ビルド → D1 マイグレーション → Pages へ公開
+```
+
+### 8.4 Access でアプリを保護
+1. Zero Trust → Access → アプリケーション → 「セルフホスト」を追加
+2. ドメイン：`ma-compass.pages.dev`（プレビュー URL も保護する場合は `*.ma-compass.pages.dev` も追加）
+3. ポリシー：「許可」— 利用者のメールアドレス（または自社ドメイン）を指定。**支援先の担当者を追加するときは、ここにもメールアドレスを追加**
+4. 作成後に表示される **Application Audience (AUD) タグ** を控える
+
+### 8.5 環境変数（Pages → 設定 → 環境変数）
+| 変数 | 値 |
+|---|---|
+| `ACCESS_TEAM_DOMAIN` | `https://<チーム名>.cloudflareaccess.com` |
+| `ACCESS_AUD` | 8.4 の AUD タグ |
+| `ADMIN_EMAILS` | 最初の管理者の Google アカウント（公開リポジトリには書かない） |
+
+設定後にもう一度 `npm run cf:deploy`。初回ログイン時にサンプルの支援先 3 社が作られます（不要なら設定から削除）。
+
+### 8.6 支援先の担当者（閲覧者）を追加する
+1. MA Compass → 設定 → ユーザーと権限 → メールアドレス・「閲覧者」・支援先を選んで追加
+2. Access のポリシー（8.4-3）にも同じメールアドレスを追加
+
+### 8.7 既存ツールの公開（Cloudflare Tunnel・無料）
+```bash
+# ツールを起動している PC で
+cloudflared tunnel login
+cloudflared tunnel create tools
+cloudflared tunnel route dns tools ga.<独自ドメイン>        # 独自ドメインがない間は Quick Tunnel か、ドメイン取得後に設定
+cloudflared tunnel run --url http://localhost:3000 tools
+```
+Tunnel の公開ホスト名にも Access アプリケーションを設定し、同じ Google ログインで保護します。**Tunnel の永続的なホスト名には Cloudflare 上のドメインが必要**なため、独自ドメイン決定までは MA Compass から「ローカルの URL」を開く運用とし、ドメイン取得後に切り替えます。
+
+### 8.8 ローカルで本番と同じ構成を試す
+```bash
+cp .dev.vars.example .dev.vars   # DEV_AUTH_EMAIL で指定したユーザーとしてログイン扱い（localhost のみ有効）
+npm run cf:dev                   # http://localhost:8788
+```

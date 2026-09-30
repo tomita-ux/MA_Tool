@@ -9,6 +9,7 @@ import { compact, yen } from '@/lib/format';
 import { useApp, useInitiatives } from '@/store/app';
 import { useDataset, useNames } from '@/store/hooks';
 import { useToast } from '@/store/toast';
+import { useCanEdit } from '@/remote/session';
 
 export function Plan() {
   const ds = useDataset();
@@ -39,6 +40,7 @@ function PlanView({ plan }: { plan: StrategyPlan }) {
   const ds = useDataset();
   const trips = useMemo(() => evaluateTripwires(ds, plan), [ds, plan]);
   const fired = trips.filter((t) => t.state === 'fired').length;
+  const canEdit = useCanEdit();
 
   return (
     <div className="flex flex-col gap-5">
@@ -47,9 +49,11 @@ function PlanView({ plan }: { plan: StrategyPlan }) {
         title={plan.project || '経営戦略'}
         description={`${plan.client}${plan.version ? ` · ${plan.version}` : ''}。戦略で決めた目標・前提・撤退基準を、各チャネルの実績データで常時チェックします。`}
         actions={
-          <Link to="/connect" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3.5 text-[13px] font-medium hover:bg-surface-2">
-            <Plug size={14} /> 戦略を更新
-          </Link>
+          canEdit && (
+            <Link to="/connect" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line-strong bg-surface px-3.5 text-[13px] font-medium hover:bg-surface-2">
+              <Plug size={14} /> 戦略を更新
+            </Link>
+          )
         }
       />
 
@@ -201,6 +205,7 @@ function TripwireRow({ status }: { status: TripStatus }) {
   const update = useApp((s) => s.updateWorkspace);
   const notify = useToast((s) => s.notify);
   const [editing, setEditing] = useState(false);
+  const canEdit = useCanEdit();
   const [rule, setRule] = useState<TripRule>(status.rule ?? { metric: 'cpa', op: '>', value: 0 });
   const unit = TRIP_METRICS.find((m) => m.id === rule.metric)!.unit;
   const [raw, setRaw] = useState(String(status.rule ? (unit === '%' ? status.rule.value * 100 : status.rule.value) : ''));
@@ -263,7 +268,7 @@ function TripwireRow({ status }: { status: TripStatus }) {
             {status.rule && <Button size="sm" variant="ghost" onClick={() => save(undefined)}>ルールを外す</Button>}
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>やめる</Button>
           </div>
-        ) : (
+        ) : !canEdit ? null : (
           <button type="button" className="mt-1.5 text-xs text-accent hover:underline" onClick={() => setEditing(true)}>
             {status.rule ? '監視ルールを編集' : '指標と閾値を設定して自動監視する'}
           </button>
@@ -351,6 +356,7 @@ function Personas({ plan }: { plan: StrategyPlan }) {
   const ws = useDataset().ws;
   const update = useApp((s) => s.updateWorkspace);
   const notify = useToast((s) => s.notify);
+  const canEdit = useCanEdit();
   if (!plan.personas.length) return null;
   const apply = () => {
     const share = 1 / plan.personas.length;
@@ -367,7 +373,7 @@ function Personas({ plan }: { plan: StrategyPlan }) {
       <CardHeader
         title="ペルソナ"
         subtitle="戦術フェーズで定義した顧客像。オーディエンス分析の行（セグメント）として使えます。"
-        actions={<ConfirmButton label="セグメントに反映" confirmLabel="置き換える" onConfirm={apply} />}
+        actions={canEdit && <ConfirmButton label="セグメントに反映" confirmLabel="置き換える" onConfirm={apply} />}
       />
       <div className="grid gap-3 px-5 pb-5 sm:grid-cols-2">
         {plan.personas.map((p) => (
@@ -433,6 +439,7 @@ function HundredDays({ plan }: { plan: StrategyPlan }) {
   const initiatives = useInitiatives();
   const add = useApp((s) => s.addInitiative);
   const notify = useToast((s) => s.notify);
+  const canEdit = useCanEdit();
   if (!plan.todo.length) return null;
   const weeks = Math.max(14, ...plan.todo.map((t) => t.startWeek + t.weeks - 1));
   const ref = (i: number) => `plan:${plan.project}:${i}`;
@@ -451,7 +458,7 @@ function HundredDays({ plan }: { plan: StrategyPlan }) {
         title="実行計画（100日プラン）"
         subtitle="戦略の行動計画を週単位で表示します。施策ボードに起票すると、進捗と成果をチャネルデータと一緒に追えます。"
         actions={
-          <Button size="sm" variant={pending.length ? 'primary' : 'secondary'} disabled={!pending.length} onClick={importAll}>
+          canEdit && <Button size="sm" variant={pending.length ? 'primary' : 'secondary'} disabled={!pending.length} onClick={importAll}>
             <Plus size={13} /> {pending.length ? `施策ボードに一括起票（${pending.length}）` : 'すべて起票済み'}
           </Button>
         }

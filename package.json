@@ -9,9 +9,13 @@
     "build:demo": "vite build --mode demo && node scripts/build-artifact.mjs",
     "preview": "vite preview",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:cf": "tsc && vite build --mode cloudflare",
+    "cf:dev": "npm run build:cf && wrangler d1 migrations apply ma-compass --local && wrangler pages dev dist",
+    "cf:deploy": "npm run build:cf && wrangler d1 migrations apply ma-compass --remote && wrangler pages deploy dist"
   },
   "dependencies": {
+    "jose": "^6.2.12",
     "lucide-react": "^1.48.0",
     "motion": "^13.4.4",
     "react": "^19.3.0",
@@ -22,6 +26,7 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
@@ -29,6 +34,7 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vite-plugin-singlefile": "^2.3.3",
-    "vitest": "^5.0.2"
+    "vitest": "^5.0.2",
+    "wrangler": "^4.144.0"
   }
 }

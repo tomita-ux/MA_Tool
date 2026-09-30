@@ -8,6 +8,7 @@ import type { Appeal } from '@/core/types';
 import { compact, count, pct, yen } from '@/lib/format';
 import { useInitiatives } from '@/store/app';
 import { useCreateInitiative, useDataset } from '@/store/hooks';
+import { useCanEdit } from '@/remote/session';
 
 type Mode = 'channel' | 'appeal';
 
@@ -33,6 +34,7 @@ export function Audience() {
   const [baseline, setBaseline] = useState<MatrixBaseline>('overall');
   const [sel, setSel] = useState<{ row: string; col: string } | null>(null);
   const create = useCreateInitiative();
+  const canEdit = useCanEdit();
   const initiatives = useInitiatives();
 
   const chMatrix = useMemo(() => channelMatrix(ws, ds.modules, ds.current, baseline), [ws, ds, baseline]);
@@ -195,9 +197,9 @@ export function Audience() {
                   </p>
                   <p className="text-[13px] text-ink">{recommendation(active.lowSample ? NaN : active.index, activeSeg.name, colName(active.colId), bestAppeal(activeSeg.id))}</p>
                 </div>
-                <Button variant="primary" disabled={alreadyCreated} onClick={() => addInitiative(active)}>
+                {canEdit && <Button variant="primary" disabled={alreadyCreated} onClick={() => addInitiative(active)}>
                   <Plus size={14} /> {alreadyCreated ? '起票済み' : '施策ボードに追加'}
-                </Button>
+                </Button>}
               </motion.div>
             ) : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-5">

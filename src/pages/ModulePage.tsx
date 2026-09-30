@@ -16,6 +16,7 @@ import { toolForModule, toolUrl } from '@/core/tools';
 import { useApp, useWorkspace } from '@/store/app';
 import { useDataset } from '@/store/hooks';
 import { useToast } from '@/store/toast';
+import { useCanEdit } from '@/remote/session';
 
 const IS_DEMO = import.meta.env.VITE_DEMO === 'true';
 
@@ -36,6 +37,7 @@ export function ModulePage() {
   const ws = useWorkspace();
   const ds = useDataset();
   const [tab, setTab] = useState<Tab>('overview');
+  const canEdit = useCanEdit();
   const module = getModule(ws, moduleId);
   if (!module || !ws.enabledModules.includes(moduleId)) return <Navigate to="/catalog" replace />;
   const conn = ws.connections[moduleId];
@@ -62,8 +64,12 @@ export function ModulePage() {
         onChange={setTab}
         tabs={[
           { id: 'overview', label: '概要' },
-          { id: 'legacy', label: '既存ダッシュボード' },
-          { id: 'data', label: 'データ連携' },
+          ...(canEdit
+            ? [
+                { id: 'legacy' as Tab, label: '既存ダッシュボード' },
+                { id: 'data' as Tab, label: 'データ連携' },
+              ]
+            : []),
         ]}
       />
       {tab === 'overview' && <Overview ds={ds} module={module} />}

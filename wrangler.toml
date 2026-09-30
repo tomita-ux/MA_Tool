@@ -1,4 +1,18 @@
-# Cloudflare Pages: npm run build → dist/. Protect the project with Cloudflare Access (docs/06-deployment.md).
+# Cloudflare Pages (free plan): static app from dist/ + Pages Functions (functions/) + D1.
+# Setup steps: docs/06-deployment.md §8
 name = "ma-compass"
 pages_build_output_dir = "dist"
 compatibility_date = "2026-09-30"
+
+[vars]
+# Cloudflare Access（Google ログイン）の設定値。デプロイ前に書き換える
+ACCESS_TEAM_DOMAIN = "https://<your-team>.cloudflareaccess.com"
+ACCESS_AUD = "<Access application AUD tag>"
+# 最初の管理者。公開リポジトリに実アドレスを書かず、Cloudflare ダッシュボードの環境変数で設定する
+ADMIN_EMAILS = "<最初の管理者の Google アカウント（カンマ区切り）>"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ma-compass"
+database_id = "<wrangler d1 create ma-compass で表示される ID>"
+migrations_dir = "migrations"

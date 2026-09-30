@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import { createHashRouter, createMemoryRouter, RouterProvider, type RouteObject } from 'react-router-dom';
+import { createHashRouter, createMemoryRouter, Navigate, RouterProvider, type RouteObject } from 'react-router-dom';
+import { useCanEdit } from './remote/session';
 import { AppShell } from './components/layout/AppShell';
 import { Audience } from './pages/Audience';
 import { Catalog } from './pages/Catalog';
@@ -16,23 +17,28 @@ import { Settings } from './pages/Settings';
 import { Strategy } from './pages/Strategy';
 import { useApp } from './store/app';
 
+/** Admin-only screens (client registration, integrations, settings). Viewers are sent home. */
+function AdminOnly({ children }: { children: React.ReactNode }) {
+  return useCanEdit() ? <>{children}</> : <Navigate to="/" replace />;
+}
+
 const routes: RouteObject[] = [
   {
     path: '/',
     element: <AppShell />,
     children: [
       { index: true, element: <CommandCenter /> },
-      { path: 'clients', element: <Clients /> },
+      { path: 'clients', element: <AdminOnly><Clients /></AdminOnly> },
       { path: 'plan', element: <Plan /> },
-      { path: 'connect', element: <Connect /> },
+      { path: 'connect', element: <AdminOnly><Connect /></AdminOnly> },
       { path: 'journey', element: <Journey /> },
       { path: 'audience', element: <Audience /> },
       { path: 'strategy', element: <Strategy /> },
       { path: 'execution', element: <Execution /> },
       { path: 'insights', element: <Insights /> },
       { path: 'm/:moduleId', element: <ModulePage /> },
-      { path: 'catalog', element: <Catalog /> },
-      { path: 'settings', element: <Settings /> },
+      { path: 'catalog', element: <AdminOnly><Catalog /></AdminOnly> },
+      { path: 'settings', element: <AdminOnly><Settings /></AdminOnly> },
       { path: '*', element: <NotFound /> },
     ],
   },

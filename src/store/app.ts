@@ -36,9 +36,16 @@ interface AppState {
   resetAll: () => void;
 }
 
+let persist_ = import.meta.env.VITE_BACKEND !== 'cloudflare';
+/** Remote (Cloudflare) mode keeps data in D1 only. */
+export const setPersistence = (enabled: boolean) => {
+  persist_ = enabled;
+};
+
 /** localStorage can be missing or throw (private mode, sandboxed previews) — degrade to no persistence. */
 const safeStorage: StateStorage = {
   getItem: (k) => {
+    if (!persist_) return null;
     try {
       return localStorage.getItem(k);
     } catch {
@@ -46,6 +53,7 @@ const safeStorage: StateStorage = {
     }
   },
   setItem: (k, v) => {
+    if (!persist_) return;
     try {
       localStorage.setItem(k, v);
     } catch {

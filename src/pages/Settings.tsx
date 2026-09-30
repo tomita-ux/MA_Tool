@@ -8,15 +8,19 @@ import { isHttpUrl, TOOLS } from '@/core/tools';
 import { uid } from '@/lib/format';
 import { useApp, useWorkspace } from '@/store/app';
 import { useToast } from '@/store/toast';
+import { useSession, type Role } from '@/remote/session';
+import { usersApi } from '@/remote/sync';
 
 export function Settings() {
   const ws = useWorkspace();
+  const remote = useSession((s) => s.mode === 'remote');
   return (
     <div className="flex flex-col gap-5">
       <PageHeader eyebrow={ws.name} title="設定" description="支援先企業ごとの事業情報・KGI・予算・顧客セグメント・各ツールの接続先を管理します。ここでの値は全画面の分析に使われます。" />
       <CompanyForm key={`c-${ws.id}`} ws={ws} />
       <SegmentsForm key={`s-${ws.id}`} ws={ws} />
       <ToolLinksForm key={`t-${ws.id}`} ws={ws} />
+      {remote && <UsersCard />}
       <Workspaces />
     </div>
   );
@@ -269,5 +273,100 @@ function ToolLinksForm({ ws }: { ws: Workspace }) {
         </div>
       </Card>
     </div>
+  );
+}
+
+/** Cloudflare mode: who can sign in, with which role, for which clients. */
+function UsersCard() {
+  const workspaces = useApp((s) => s.workspaces);
+  const me = useSession((s) => s.email);
+  const notify = useToast((s) => s.notify);
+  const [data, setData] = useState<Awaited<ReturnType<typeof usersApi.list>> | null>(null);
+  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<Role>('viewer');
+  const [ids, setIds] = useState<string[]>([]);
+
+  const load = () =>
+    usersApi
+      .list()
+      .then(setData)
+      .catch((e: Error) => setError(e.message));
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const save = async (target: string, r: Role, w: string[]) => {
+    try {
+      await usersApi.save(target, r, w);
+      notify(`${target} を保存しました`);
+      setEmail('');
+      setIds([]);
+      setError('');
+      await load();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  const name = (id: string) => workspaces.find((w) => w.id === id)?.name ?? id;
+
+  return (
+    <Card>
+      <CardHeader
+        title="ユーザーと権限"
+        subtitle="Google アカウントでログインします。管理者はすべての支援先と全機能、閲覧者は割り当てた支援先のデータだけを読み取り専用で見られます。"
+      />
+      <div className="flex flex-col gap-4 px-5 pb-5">
+        <div className="grid gap-3 rounded-xl border border-line p-4 md:grid-cols-[minmax(0,1.2fr)_160px_minmax(0,1.6fr)_auto] md:items-end">
+          <Field label="Google アカウント（メールアドレス）" htmlFor="u-email">
+            <input id="u-email" type="email" className={inputClass} placeholder="name@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="権限" htmlFor="u-role">
+            <select id="u-role" className={inputClass} value={role} onChange={(e) => setRole(e.target.value as Role)}>
+              <option value="viewer">閲覧者（自社のみ）</option>
+              <option value="admin">管理者（全機能）</option>
+            </select>
+          </Field>
+          {role === 'viewer' ? (
+            <Field label="閲覧できる支援先">
+              <div className="flex flex-wrap gap-1.5">
+                {workspaces.map((w) => {
+                  const on = ids.includes(w.id);
+                  return (
+                    <button key={w.id} type="button" aria-pressed={on} onClick={() => setIds(on ? ids.filter((x) => x !== w.id) : [...ids, w.id])} className={cx('rounded-full border px-2.5 py-1 text-xs', on ? 'border-accent bg-accent-soft text-ink' : 'border-line-strong text-ink-2')}>
+                      {w.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </Field>
+          ) : (
+            <p className="text-xs text-ink-2">管理者はすべての支援先を扱えます。</p>
+          )}
+          <Button variant="primary" disabled={!email.trim() || (role === 'viewer' && !ids.length)} onClick={() => save(email.trim(), role, ids)}>
+            追加・更新
+          </Button>
+        </div>
+        {error && <p className="text-xs text-critical-ink">{error}</p>}
+        <ul className="flex flex-col">
+          {data?.bootstrapAdmins.map((e) => (
+            <li key={e} className="flex items-center justify-between gap-3 border-b border-line py-2 text-[13px]">
+              <span>{e}</span>
+              <span className="text-xs text-muted">管理者（初期設定・ADMIN_EMAILS）</span>
+            </li>
+          ))}
+          {data?.users.map((u) => (
+            <li key={u.email} className="flex flex-wrap items-center justify-between gap-3 border-b border-line py-2 text-[13px] last:border-0">
+              <span className="min-w-0">
+                <span className="font-medium">{u.email}</span>
+                <span className="ml-2 text-xs text-ink-2">{u.role === 'admin' ? '管理者' : `閲覧者：${u.workspaceIds.map(name).join('、')}`}</span>
+              </span>
+              {u.email !== me && <ConfirmButton label="削除" confirmLabel="削除する" onConfirm={() => usersApi.remove(u.email).then(load).catch((e: Error) => setError(e.message))} />}
+            </li>
+          ))}
+          {data && !data.users.length && <li className="py-2 text-xs text-muted">まだ追加されたユーザーはいません。</li>}
+        </ul>
+      </div>
+    </Card>
   );
 }

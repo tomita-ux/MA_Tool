@@ -1,0 +1,4 @@
+# Copy to .dev.vars for `npm run cf:dev` (local only; never deploy these values)
+ACCESS_AUD=""
+DEV_AUTH_EMAIL="admin@example.com"
+ADMIN_EMAILS="admin@example.com"

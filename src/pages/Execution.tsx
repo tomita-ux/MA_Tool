@@ -7,6 +7,7 @@ import type { Initiative, InitiativeStatus, StageId } from '@/core/types';
 import { useApp, useInitiatives, useWorkspace } from '@/store/app';
 import { useDataset, useNames } from '@/store/hooks';
 import { useToast } from '@/store/toast';
+import { useCanEdit } from '@/remote/session';
 
 const SOURCE: Record<Initiative['source'], string> = { strategy: '経営戦略', insight: 'インサイト', audience: 'オーディエンス', budget: '予算', manual: '手動' };
 
@@ -14,6 +15,7 @@ export function Execution() {
   const items = useInitiatives();
   const update = useApp((s) => s.updateInitiative);
   const [editing, setEditing] = useState<Initiative | 'new' | null>(null);
+  const canEdit = useCanEdit();
   const [over, setOver] = useState<InitiativeStatus | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
 
@@ -30,9 +32,11 @@ export function Execution() {
         title="施策ボード"
         description="インサイトや分析から起票した施策を、企画から効果検証まで管理します。カードはドラッグで移動できます（キーボードでは編集画面でステータスを変更）。"
         actions={
-          <Button variant="primary" onClick={() => setEditing('new')}>
-            <Plus size={15} /> 新しい施策
-          </Button>
+          canEdit && (
+            <Button variant="primary" onClick={() => setEditing('new')}>
+              <Plus size={15} /> 新しい施策
+            </Button>
+          )
         }
       />
 
@@ -45,6 +49,7 @@ export function Execution() {
                 key={col.id}
                 aria-label={col.name}
                 onDragOver={(e) => {
+                  if (!canEdit) return;
                   e.preventDefault();
                   setOver(col.id);
                 }}
@@ -62,7 +67,7 @@ export function Execution() {
                 <AnimatePresence initial={false}>
                   {list.map((i) => (
                     <motion.div key={i.id} layout layoutId={i.id} initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}>
-                      <InitiativeCard item={i} dragging={dragging === i.id} onOpen={() => setEditing(i)} onDragStart={() => setDragging(i.id)} onDragEnd={() => { setDragging(null); setOver(null); }} />
+                      <InitiativeCard item={i} readOnly={!canEdit} dragging={dragging === i.id} onOpen={() => canEdit && setEditing(i)} onDragStart={() => setDragging(i.id)} onDragEnd={() => { setDragging(null); setOver(null); }} />
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -78,12 +83,12 @@ export function Execution() {
   );
 }
 
-function InitiativeCard({ item, onOpen, onDragStart, onDragEnd, dragging }: { item: Initiative; onOpen: () => void; onDragStart: () => void; onDragEnd: () => void; dragging: boolean }) {
+function InitiativeCard({ item, onOpen, onDragStart, onDragEnd, dragging, readOnly }: { item: Initiative; onOpen: () => void; onDragStart: () => void; onDragEnd: () => void; dragging: boolean; readOnly?: boolean }) {
   const ds = useDataset();
   const names = useNames();
   return (
     <article
-      draggable
+      draggable={!readOnly}
       tabIndex={0}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', item.id);
@@ -93,7 +98,7 @@ function InitiativeCard({ item, onOpen, onDragStart, onDragEnd, dragging }: { it
       onDragEnd={onDragEnd}
       onClick={onOpen}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen())}
-      aria-label={`${item.title}（編集）`}
+      aria-label={readOnly ? item.title : `${item.title}（編集）`}
       className={cx('flex cursor-grab flex-col gap-2 rounded-lg border border-line bg-surface p-3 text-left shadow-[0_1px_0_var(--line)] transition-opacity hover:border-line-strong active:cursor-grabbing', dragging && 'opacity-40')}
     >
       <div className="flex flex-wrap items-center gap-1.5">

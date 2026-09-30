@@ -45,6 +45,8 @@ npm test           # 分析エンジンの単体テスト（Vitest）
 npm run typecheck  # 型チェック
 npm run build      # 本番ビルド（dist/）
 npm run build:demo # 共有用の単一 HTML デモ（artifact/ma-compass.html）
+npm run cf:dev     # Cloudflare 構成（Pages Functions + D1 + ログイン権限）をローカルで起動
+npm run cf:deploy  # Cloudflare Pages へ公開（手順は docs/06-deployment.md §8）
 
 # strategy-agents のプロジェクトを取り込み用 JSON に書き出す
 node scripts/export-strategy.mjs <strategy-agents>/projects/<id> strategy-plan.json
@@ -73,4 +75,4 @@ docs/                   設計書・要件定義書・機能仕様書・ガイ�
 - データはシード固定のサンプルデータ、またはブリッジ（JSON/CSV）取り込み。OAuth による自動取得は Phase 2（BFF 導入後）。
 - カスタマージャーニーの経路は集計データからの推定。Phase 2 で GA4 の BigQuery エクスポート等の実経路に置き換え。
 - インサイトはルールベース。Phase 2 で生成 AI による文章化・質問応答を追加。
-- 認証・権限・監査ログは Phase 2。現在はブラウザ内保存（localStorage）で単一利用者を想定。
+- ローカル（`npm run dev`）はブラウザ内保存の単一利用者モード。Cloudflare 版は Google ログイン・管理者／閲覧者の 2 権限・D1 保存・変更履歴に対応。

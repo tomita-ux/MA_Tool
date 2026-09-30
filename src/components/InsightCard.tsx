@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { KIND_LABEL, type Insight } from '@/core/analytics/insights';
 import { useInitiatives } from '@/store/app';
 import { useCreateInitiative } from '@/store/hooks';
+import { useCanEdit } from '@/remote/session';
+
 import { Badge, Button, cx } from './ui';
 
 export const PRIORITY = {
@@ -15,6 +17,7 @@ export function InsightCard({ insight, compact }: { insight: Insight; compact?: 
   const initiatives = useInitiatives();
   const create = useCreateInitiative();
   const created = initiatives.some((i) => i.sourceRef === insight.id);
+  const canEdit = useCanEdit();
   const p = PRIORITY[insight.priority];
 
   const toInitiative = () =>
@@ -55,7 +58,7 @@ export function InsightCard({ insight, compact }: { insight: Insight; compact?: 
         {insight.impact}
       </p>
       <div className="flex flex-wrap items-center gap-2 pt-0.5">
-        {insight.kind === 'missing' ? (
+        {!canEdit ? null : insight.kind === 'missing' ? (
           <Link to="/catalog" className="inline-flex h-7 items-center gap-1 rounded-lg bg-accent px-2.5 text-xs font-medium text-accent-ink hover:bg-accent-hover">
             カタログで追加 <ArrowRight size={13} />
           </Link>
