@@ -135,6 +135,17 @@ export interface Workspace {
   plan?: StrategyPlan;
   /** latest AI search visibility diagnosis from seo-geo-aio-llmo */
   aiDiagnosis?: AiDiagnosis;
+  /** where this client lives in each existing tool (URL + the tool's own client/property id) */
+  toolLinks?: Partial<Record<ToolId, ToolLink>>;
+}
+
+export type ToolId = 'strategy-agents' | 'ga-dashboard' | 'ads-bi-dashboard' | 'seo-dashboard' | 'seo-geo-aio-llmo' | 'sns-dashboard';
+
+export interface ToolLink {
+  /** base URL of the tool, e.g. http://localhost:3001 */
+  url: string;
+  /** the tool's identifier for this client (clientId / propertyId / domain_id / project id) */
+  ref?: string;
 }
 
 export interface InjectedAnomaly {

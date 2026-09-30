@@ -13,6 +13,10 @@ const sakuraModules = ['ga4', 'google-ads', 'gbp', 'sns', 'seo'];
 export const SAMPLE_WORKSPACES: Workspace[] = [
   {
     id: 'nexa',
+    toolLinks: {
+      'ga-dashboard': { url: 'http://localhost:3000', ref: 'properties/demo' },
+      'ads-bi-dashboard': { url: 'http://localhost:3001', ref: 'demo' },
+    },
     plan: SAMPLE_PLANS.nexa,
     aiDiagnosis: SAMPLE_DIAGNOSES.nexa,
     name: 'ネクサラーニング株式会社',
@@ -67,6 +71,10 @@ export const SAMPLE_WORKSPACES: Workspace[] = [
   },
   {
     id: 'lumiere',
+    toolLinks: {
+      'ga-dashboard': { url: 'http://localhost:3000', ref: 'properties/demo' },
+      'ads-bi-dashboard': { url: 'http://localhost:3001', ref: 'demo' },
+    },
     plan: SAMPLE_PLANS.lumiere,
     aiDiagnosis: SAMPLE_DIAGNOSES.lumiere,
     name: 'ルミエールスタイル',
@@ -119,6 +127,10 @@ export const SAMPLE_WORKSPACES: Workspace[] = [
   },
   {
     id: 'sakura',
+    toolLinks: {
+      'ga-dashboard': { url: 'http://localhost:3000', ref: 'properties/demo' },
+      'ads-bi-dashboard': { url: 'http://localhost:3001', ref: 'demo' },
+    },
     plan: SAMPLE_PLANS.sakura,
     name: 'さくら通り歯科クリニック',
     industry: '歯科医院（地域ビジネス）',
@@ -175,5 +187,5 @@ export const TEMPLATE_NAMES: Record<Workspace['template'], string> = {
 
 export function workspaceFromTemplate(template: Workspace['template'], name: string, id: string): Workspace {
   const base = SAMPLE_WORKSPACES.find((w) => w.template === template)!;
-  return structuredClone({ ...base, id, name, legacyUrls: {}, customModules: [], anomalies: [], plan: undefined, aiDiagnosis: undefined });
+  return structuredClone({ ...base, id, name, legacyUrls: {}, customModules: [], anomalies: [], plan: undefined, aiDiagnosis: undefined, toolLinks: {} });
 }

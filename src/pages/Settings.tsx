@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Button, Card, CardHeader, ConfirmButton, Field, PageHeader, cx, inputClass } from '@/components/ui';
 import { TEMPLATE_NAMES } from '@/core/data/workspaces';
-import type { KgiMetric, Segment, Workspace } from '@/core/types';
+import type { KgiMetric, Segment, ToolId, ToolLink, Workspace } from '@/core/types';
+import { isHttpUrl, TOOLS } from '@/core/tools';
 import { uid } from '@/lib/format';
 import { useApp, useWorkspace } from '@/store/app';
 import { useToast } from '@/store/toast';
@@ -12,9 +13,10 @@ export function Settings() {
   const ws = useWorkspace();
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader eyebrow={ws.name} title="設定" description="企業ごとの事業情報・KGI・予算・顧客セグメントを管理します。ここでの値は全画面の分析に使われます。" />
+      <PageHeader eyebrow={ws.name} title="設定" description="支援先企業ごとの事業情報・KGI・予算・顧客セグメント・各ツールの接続先を管理します。ここでの値は全画面の分析に使われます。" />
       <CompanyForm key={`c-${ws.id}`} ws={ws} />
       <SegmentsForm key={`s-${ws.id}`} ws={ws} />
+      <ToolLinksForm key={`t-${ws.id}`} ws={ws} />
       <Workspaces />
     </div>
   );
@@ -166,7 +168,7 @@ function Workspaces() {
   return (
     <div ref={ref} className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
       <Card>
-        <CardHeader title="企業を追加" subtitle="テンプレートのモジュール構成・セグメントを初期値として作成します。" />
+        <CardHeader title="支援先を追加" subtitle="テンプレートのモジュール構成・セグメントを初期値として作成します。" />
         <div className="flex flex-col gap-3 px-5 pb-5">
           <Field label="企業名" htmlFor="new-ws-name">
             <input id="new-ws-name" className={inputClass} placeholder="例：株式会社サンプル" value={name} onChange={(e) => setName(e.target.value)} />
@@ -183,7 +185,7 @@ function Workspaces() {
             onClick={() => {
               addWorkspace(template, name.trim());
               setName('');
-              notify('企業を追加し、切り替えました');
+              notify('支援先を追加し、切り替えました');
             }}
           >
             <Plus size={14} /> 追加して切り替え
@@ -191,7 +193,7 @@ function Workspaces() {
         </div>
       </Card>
       <Card>
-        <CardHeader title="登録済みの企業" />
+        <CardHeader title="登録済みの支援先" />
         <ul className="flex flex-col px-5 pb-3">
           {workspaces.map((w) => (
             <li key={w.id} className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
@@ -206,6 +208,64 @@ function Workspaces() {
         <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
           <span className="text-xs text-ink-2">すべての変更を破棄して、サンプルの初期状態に戻します。</span>
           <ConfirmButton label="初期状態に戻す" confirmLabel="戻す" onConfirm={() => { resetAll(); notify('初期状態に戻しました'); }} />
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function ToolLinksForm({ ws }: { ws: Workspace }) {
+  const update = useApp((s) => s.updateWorkspace);
+  const notify = useToast((s) => s.notify);
+  const location = useLocation();
+  const ref = useRef<HTMLDivElement>(null);
+  const [links, setLinks] = useState<Partial<Record<ToolId, ToolLink>>>(ws.toolLinks ?? {});
+  const [error, setError] = useState('');
+  useEffect(() => {
+    if (location.hash === '#tools') ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [location.hash]);
+  const set = (id: ToolId, patch: Partial<ToolLink>) => setLinks((l) => ({ ...l, [id]: { url: '', ...l[id], ...patch } }));
+  const save = () => {
+    const bad = Object.entries(links).find(([, l]) => l?.url && !isHttpUrl(l.url));
+    if (bad) return setError('URL は http:// または https:// で始めてください。');
+    const clean = Object.fromEntries(Object.entries(links).filter(([, l]) => l?.url || l?.ref).map(([k, l]) => [k, { url: l!.url.trim(), ref: l!.ref?.trim() || undefined }]));
+    update({ toolLinks: clean });
+    setError('');
+    notify('ツールの接続先を保存しました');
+  };
+  return (
+    <div ref={ref} className="scroll-mt-20">
+      <Card>
+        <CardHeader
+          title="各ツールの接続先（この支援先企業）"
+          subtitle="既存ツール上でのこの企業の URL と ID です。チャネル画面の「詳しく見る」リンクと、連携ハブの API 取得に使います。"
+          actions={<Button size="sm" variant="primary" onClick={save}>保存</Button>}
+        />
+        <div className="overflow-x-auto px-5 pb-4">
+          <table className="w-full min-w-[640px] text-[13px]">
+            <thead>
+              <tr className="border-b border-line text-left text-xs text-ink-2">
+                <th className="py-2 pr-3 font-medium">ツール</th>
+                <th className="py-2 pr-3 font-medium">URL</th>
+                <th className="py-2 pr-3 font-medium">この企業の ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TOOLS.map((t) => (
+                <tr key={t.id} className="border-b border-line last:border-0">
+                  <td className="py-2 pr-3 font-medium whitespace-nowrap">{t.name}</td>
+                  <td className="py-2 pr-3">
+                    <input aria-label={`${t.name} の URL`} className={inputClass} placeholder={t.defaultUrl || 'https://'} value={links[t.id]?.url ?? ''} onChange={(e) => set(t.id, { url: e.target.value })} />
+                  </td>
+                  <td className="py-2 pr-3">
+                    <input aria-label={`${t.name} の ID`} className={inputClass} placeholder={t.refLabel} value={links[t.id]?.ref ?? ''} onChange={(e) => set(t.id, { ref: e.target.value })} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {error && <p className="mt-2 text-xs text-critical-ink">{error}</p>}
+          <p className="mt-2 text-xs text-muted">API キーやトークンはここに保存しません。公開環境では中継サーバー側で管理します（docs/06-deployment.md）。</p>
         </div>
       </Card>
     </div>

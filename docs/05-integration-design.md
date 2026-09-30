@@ -104,14 +104,22 @@ strategy-agents の成果物を、実行と接続する形で表示します。
 
 | ツール | 追加するエンドポイント | 実装の要点 |
 |---|---|---|
-| GA-Dashboard | `GET /api/bridge?propertyId&startDate&endDate` | `ga4-fetcher.js` に `['date','sessionCampaignName','sessionDefaultChannelGroup']` × `['sessions','engagedSessions','conversions','purchaseRevenue']` の定義を追加 |
-| ads-bi-dashboard | `GET /api/bridge/:clientId?preset` | GAQL に `segments.date, campaign.name, campaign.advertising_channel_type, metrics.conversions_value` を追加。`cost_micros / 1e6`。`isMock` を必ず返す |
+| GA-Dashboard（**実装済み**） | `GET /api/bridge?propertyId&startDate&endDate` | `ga4-fetcher.js` に `['date','sessionCampaignName','sessionDefaultChannelGroup']` × `['sessions','engagedSessions','conversions','purchaseRevenue']` の定義を追加 |
+| ads-bi-dashboard（**実装済み**） | `GET /api/bridge/:clientId?preset` | GAQL に `segments.date, campaign.name, campaign.advertising_channel_type, metrics.conversions_value` を追加。`cost_micros / 1e6`。`isMock` を必ず返す |
 | seo-dashboard | `GET /api/bridge?domain_id&from&to` | GSC を `['date','query']` で日次取得し、キーワードのカテゴリ別に集計 |
 | seo-geo-aio-llmo | （data.json のスキーマ拡張） | `llmCitationAnalysis.queryMatrix[{keyword, llm, cited, form, withLink}]` を追加し、トピック×エンジン行列を実測に置き換える |
 | sns-dashboard | `GET /api/bridge/:clientId?days` | `metrics_account_daily` と `metrics_post` を日×プラットフォームで集計（engagements＝いいね＋コメント＋シェア＋保存、clicks＝website_clicks） |
 | strategy-agents | 最終ステップで `strategy.json` を出力 | `05_final` / `T5` 完了時に `scripts/export-strategy.mjs` 相当を自動実行。トリップワイヤーに `metric / op / value` を持たせると手動設定が不要になる |
 
 ---
+
+### 5.1 実装状況（v0.3）
+
+| ツール | 状態 | 追加したもの |
+|---|---|---|
+| ads-bi-dashboard | 実装済み（ブランチ `claude/clever-turing-ah636y`） | `/api/bridge/:clientId`（キャンペーン×日次、売上＝conversions_value、推定時は `revenueSource` で明示、モック時は `isMock`）、`?client=&section=` のディープリンク |
+| GA-Dashboard | 実装済み（同上） | 取得定義 `daily-campaign-channels`、`/api/bridge`（CORS 許可リスト・任意の Bearer トークン・登録済みプロパティのみ）、`?propertyId=&tab=` のディープリンク、テスト |
+| MA Compass | 実装済み | 連携ハブの「API から取得」、支援先ごとの接続先設定、チャネル画面から各ツールへの詳細リンク、支援先一覧 |
 
 ## 6. 戦略 ↔ 実行ループの設計
 

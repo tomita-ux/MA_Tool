@@ -111,6 +111,10 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
+      <div className="mt-4">
+        <NavItem to="/clients" icon={<Building2 size={16} />}>支援先一覧</NavItem>
+      </div>
+
       <RailLabel>経営戦略</RailLabel>
       <NavItem to="/plan" icon={<Flag size={16} />} badge={railBadge(firedCount, 'critical')}>経営戦略</NavItem>
       <NavItem to="/strategy" icon={<Target size={16} />}>戦略プランナー</NavItem>
@@ -261,7 +265,7 @@ function WorkspaceSwitcher() {
         {open && (
           <motion.ul
             role="listbox"
-            aria-label="企業を切り替え"
+            aria-label="支援先を切り替え"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
@@ -296,7 +300,17 @@ function WorkspaceSwitcher() {
                 }}
                 className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] text-accent hover:bg-surface-2"
               >
-                ＋ 企業を追加
+                ＋ 支援先を追加
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  navigate('/clients');
+                }}
+                className="w-full rounded-lg px-2.5 py-2 text-left text-[13px] text-ink-2 hover:bg-surface-2"
+              >
+                支援先一覧を見る
               </button>
             </li>
           </motion.ul>

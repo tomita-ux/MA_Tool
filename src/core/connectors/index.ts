@@ -114,6 +114,61 @@ export function fromAdsBi(input: unknown): ConnectorResult {
   return { kind: 'bridge', tool: 'ads-bi-dashboard', moduleId: 'google-ads', rows, label: 'ads-bi-dashboard', notes };
 }
 
+/** ads-bi-dashboard GET /api/bridge/:clientId — campaign × day with revenue. */
+export function fromAdsBiBridge(input: Obj): ConnectorResult {
+  const rows: BridgeRow[] = arr(input.records)
+    .filter(isObj)
+    .map((r) => {
+      const m = isObj(r.metrics) ? r.metrics : {};
+      const campaign = str(r.campaign) || '(不明)';
+      return {
+        date: str(r.date).slice(0, 10),
+        campaign,
+        segment: '',
+        stage: adsStage(campaign, str(r.channelType)),
+        metrics: { impressions: num(m.impressions), clicks: num(m.clicks), cost: num(m.cost), conversions: num(m.conversions), revenue: num(m.revenue) },
+      };
+    });
+  if (!rows.length) return { kind: 'error', message: 'records が空です。期間を広げるか、ads-bi-dashboard 側でデータを確認してください。' };
+  const client = isObj(input.client) ? str(input.client.name) : '';
+  const notes = [`${new Set(rows.map((r) => r.campaign)).size} キャンペーン × ${new Set(rows.map((r) => r.date)).size} 日分を取り込みます。`];
+  if (input.revenueSource === 'estimated_avgCvValue') notes.push('売上は Google 広告のコンバージョン値がないため、ads-bi-dashboard の想定単価（avgCvValue）× CV による推定です。');
+  if (input.revenueSource === 'none') notes.push('売上データがないため ROAS は表示されません。');
+  if (input.isMock) notes.push('注意：ads-bi-dashboard が認証情報なしでモックデータを返しています。実データではありません。');
+  return { kind: 'bridge', tool: 'ads-bi-dashboard', moduleId: 'google-ads', rows, label: `ads-bi-dashboard API${client ? `（${client}）` : ''}`, notes };
+}
+
+/** GA-Dashboard GET /api/bridge — Direct/Referral into GA4 (other channels are counted in their own modules). */
+export function fromGaBridge(input: Obj): ConnectorResult {
+  const byKey = new Map<string, BridgeRow>();
+  let skipped = 0;
+  for (const r of arr(input.records).filter(isObj)) {
+    const group = str(r.channelGroup);
+    const campaign = group === 'Direct' ? 'direct' : group === 'Referral' ? 'referral' : null;
+    if (!campaign) {
+      skipped++;
+      continue;
+    }
+    const date = str(r.date).slice(0, 10);
+    const m = isObj(r.metrics) ? r.metrics : {};
+    const key = `${date}|${campaign}`;
+    const row = byKey.get(key) ?? { date, campaign, segment: '', metrics: { sessions: 0, engagements: 0, conversions: 0, revenue: 0 } };
+    row.metrics.sessions! += num(m.sessions);
+    row.metrics.engagements! += num(m.engagements);
+    row.metrics.conversions! += num(m.conversions);
+    row.metrics.revenue! += num(m.revenue);
+    byKey.set(key, row);
+  }
+  const rows = [...byKey.values()];
+  if (!arr(input.records).length) return { kind: 'error', message: '指定期間のデータがありません。GA-Dashboard でデータの取得日（最終取得日）を確認し、必要なら再取得してください。' };
+  if (!rows.length) return { kind: 'error', message: 'Direct / Referral のデータがありません。' };
+  const prop = isObj(input.property) ? str(input.property.name) : '';
+  const notes = [`ダイレクト・参照の ${rows.length} 行（日×チャネル）を取り込みます。`, `他チャネルの ${skipped} 行は各チャネルモジュールで計上するため除外しました（二重計上の防止）。`];
+  for (const n of arr(input.notes)) notes.push(str(n));
+  if (input.isMock) notes.push('注意：GA-Dashboard のデモプロパティのデータです。');
+  return { kind: 'bridge', tool: 'ga-dashboard', moduleId: 'ga4', rows, label: `GA-Dashboard API${prop ? `（${prop}）` : ''}`, notes };
+}
+
 // ─── seo-dashboard ───────────────────────────────────────────────────────────
 
 /** GET /api/gsc/metrics ({summary, daily:[{date,clicks,impressions,ctr,position}]}) → seo module. */
@@ -340,6 +395,8 @@ export function convertNative(textInput: string): ConnectorResult {
     return { kind: 'error', message: `JSON を読み取れません：${(e as Error).message}` };
   }
   if (isObj(data)) {
+    if (data.source === 'ads-bi-dashboard' && Array.isArray(data.records)) return fromAdsBiBridge(data);
+    if (data.source === 'ga-dashboard' && Array.isArray(data.records)) return fromGaBridge(data);
     if (data.source === 'strategy-agents' || (isObj(data.report) && isObj((data.report as Obj).brief))) return fromStrategyAgents(data);
     if (isObj(data.tvs) && (isObj(data.llmCitationAnalysis) || isObj(data.meta))) return fromVisibilityDiagnosis(data);
     if (isObj(data.matrix)) return fromSeoRankings(data);

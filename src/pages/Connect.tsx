@@ -5,6 +5,7 @@ import { Badge, Button, Card, PageHeader, cx, inputClass } from '@/components/ui
 import { convertNative, TOOL_LABEL, type ConnectorResult, type SourceTool } from '@/core/connectors';
 import { normalizeBridgeRows } from '@/core/data/bridge';
 import { getModule } from '@/modules';
+import { toolById, toolUrl } from '@/core/tools';
 import { useApp, useWorkspace } from '@/store/app';
 import { useToast } from '@/store/toast';
 
@@ -31,17 +32,23 @@ const TOOLS: ToolSpec[] = [
   {
     tool: 'ga-dashboard',
     role: 'サイト分析から課題を抽出し、施策を立案する',
-    feeds: 'GA4 モジュール（ダイレクト・参照流入と CV）',
+    feeds: 'GA4 モジュール（ダイレクト・参照流入の CV・売上）',
     moduleId: 'ga4',
-    exports: [{ label: 'キャッシュファイル', how: 'data/cache/<properties_ID>/daily-channels.json' }],
+    exports: [
+      { label: 'ブリッジ API', how: 'GET http://localhost:3000/api/bridge?propertyId=<properties/…>&startDate=&endDate=' },
+      { label: 'キャッシュファイル', how: 'data/cache/<properties_ID>/daily-channels.json' },
+    ],
     policy: '有料・自然検索・SNS の流入は各チャネルで計上し、GA4 からはダイレクト・参照のみ取り込みます。',
   },
   {
     tool: 'ads-bi-dashboard',
     role: 'デジタル広告でリーチ面積を増やし、成果につなげる',
-    feeds: 'Google広告モジュール（表示・クリック・費用・CV）、予算シミュレーター',
+    feeds: 'Google広告モジュール（キャンペーン×日次の表示・クリック・費用・CV・売上）、予算シミュレーター',
     moduleId: 'google-ads',
-    exports: [{ label: 'API レスポンス', how: 'GET http://localhost:3001/api/summary/<clientId>?preset=last30Days' }],
+    exports: [
+      { label: 'ブリッジ API', how: 'GET http://localhost:3001/api/bridge/<clientId>?preset=last30Days' },
+      { label: 'API レスポンス', how: 'GET http://localhost:3001/api/summary/<clientId>?preset=last30Days' },
+    ],
     policy: 'Yahoo!広告・Meta広告は ads-bi-dashboard に未実装のため、当面は MA Compass のブリッジ取り込みで補います。',
   },
   {
@@ -131,13 +138,36 @@ function useApply() {
   };
 }
 
-function Importer({ expect, compact }: { expect?: SourceTool; compact?: boolean }) {
+function Importer({ expect, compact, apiUrl }: { expect?: SourceTool; compact?: boolean; apiUrl?: string }) {
   const apply = useApply();
   const notify = useToast((s) => s.notify);
   const fileRef = useRef<HTMLInputElement>(null);
   const [text, setText] = useState('');
   const [result, setResult] = useState<ConnectorResult | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  const [token, setToken] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const fetchApi = async () => {
+    if (!apiUrl) return;
+    setLoading(true);
+    try {
+      const res = await fetch(apiUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      const body = await res.text();
+      if (!res.ok) {
+        setResult({ kind: 'error', message: `API がエラーを返しました（${res.status}）：${body.slice(0, 200)}` });
+        return;
+      }
+      preview(body);
+    } catch {
+      setResult({
+        kind: 'error',
+        message: 'API に接続できませんでした。ツールが起動しているか、URL と ID（設定 → 各ツールの接続先）、ツール側の CORS 許可（BRIDGE_ALLOWED_ORIGINS）を確認してください。',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const preview = (source: string) => {
     setDone(null);
@@ -166,6 +196,22 @@ function Importer({ expect, compact }: { expect?: SourceTool; compact?: boolean 
         <Button size="sm" onClick={() => fileRef.current?.click()}>
           <FileUp size={13} /> JSON ファイルを選択
         </Button>
+        {apiUrl && (
+          <>
+            <Button size="sm" variant="primary" disabled={loading} onClick={fetchApi}>
+              {loading ? '取得中…' : 'API から取得（直近 90 日）'}
+            </Button>
+            <input
+              aria-label="API トークン（任意）"
+              type="password"
+              autoComplete="off"
+              className={cx(inputClass, 'h-7 w-40 text-xs')}
+              placeholder="トークン（任意）"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
+          </>
+        )}
         {!compact && (
           <Button size="sm" variant="ghost" disabled={!text.trim()} onClick={() => preview(text)}>
             <ClipboardPaste size={13} /> 貼り付けた内容を確認
@@ -303,7 +349,29 @@ function ToolCard({ spec, index }: { spec: ToolSpec; index: number }) {
           </div>
         ))}
       </div>
-      <Importer expect={spec.tool} compact />
+      {(() => {
+        const def = toolById(spec.tool);
+        const link = ws.toolLinks?.[spec.tool];
+        const apiUrl = def.bridgeUrl && link?.url && link.ref ? def.bridgeUrl(link, 90) : undefined;
+        const open = toolUrl(ws, spec.tool);
+        return (
+          <>
+            {def.bridgeUrl && !apiUrl && (
+              <p className="text-xs text-muted">
+                ブリッジ API に対応済みです。
+                <Link to="/settings#tools" className="ml-1 text-accent hover:underline">接続先（URL と ID）を設定</Link>
+                すると、ここから直接取得できます。
+              </p>
+            )}
+            <Importer expect={spec.tool} compact apiUrl={apiUrl} />
+            {open && (
+              <a href={open} target="_blank" rel="noreferrer noopener" className="self-start text-xs text-accent hover:underline">
+                {def.name} でこの企業を開く ↗
+              </a>
+            )}
+          </>
+        );
+      })()}
     </li>
   );
 }

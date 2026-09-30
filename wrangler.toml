@@ -1,0 +1,4 @@
+# Cloudflare Pages: npm run build → dist/. Protect the project with Cloudflare Access (docs/06-deployment.md).
+name = "ma-compass"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-09-30"

@@ -142,3 +142,30 @@ describe('strategy ↔ execution link', () => {
     expect(rows.find((r) => r.name.startsWith('Yahoo'))?.measured).toEqual(['yahoo-ads']);
   });
 });
+
+describe('Phase 2 bridge APIs', () => {
+  it('ads-bi-dashboard bridge → campaign-level rows with stages and warnings', () => {
+    const r = convertNative(j({
+      module: 'google-ads', source: 'ads-bi-dashboard', isMock: true, revenueSource: 'estimated_avgCvValue', client: { id: 'demo', name: 'デモ' },
+      records: [
+        { date: '2026-09-01', campaign: 'ブランド検索 - 指名', channelType: 'SEARCH', metrics: { impressions: 100, clicks: 10, cost: 1000, conversions: 1, revenue: 300000 } },
+        { date: '2026-09-01', campaign: 'P-MAX - 全社', channelType: 'PERFORMANCE_MAX', metrics: { impressions: 900, clicks: 9, cost: 2000, conversions: 0, revenue: 0 } },
+      ],
+    }));
+    expect(r.kind).toBe('bridge');
+    if (r.kind !== 'bridge') return;
+    expect(r.rows.map((x) => x.stage)).toEqual(['conversion', 'awareness']);
+    expect(r.rows[0].metrics.revenue).toBe(300000);
+    expect(r.notes.join()).toMatch(/モック/);
+    expect(r.notes.join()).toMatch(/推定/);
+  });
+
+  it('GA-Dashboard bridge → Direct/Referral summed per day', () => {
+    const rec = (channelGroup: string, campaign: string, conversions: number) => ({ date: '2026-09-01', campaign, channelGroup, metrics: { sessions: 10, engagements: 5, conversions, revenue: 0 } });
+    const r = convertNative(j({ module: 'ga4', source: 'ga-dashboard', records: [rec('Direct', '(direct)', 1), rec('Direct', 'x', 2), rec('Referral', '(referral)', 1), rec('Paid Search', 'brand', 5)] }));
+    expect(r.kind).toBe('bridge');
+    if (r.kind !== 'bridge') return;
+    expect(r.rows).toHaveLength(2);
+    expect(r.rows.find((x) => x.campaign === 'direct')?.metrics.conversions).toBe(3);
+  });
+});

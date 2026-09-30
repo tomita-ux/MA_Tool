@@ -1,6 +1,6 @@
 import { Check, ClipboardPaste, Copy, ExternalLink, FileUp, Link2, RotateCcw } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ChartLegend, TrendChart, type Series } from '@/components/charts/TrendChart';
 import { AnimatedNumber, Badge, Button, Card, CardHeader, ConfirmButton, Delta, EmptyState, ModuleDot, PageHeader, Segmented, StageChip, Tabs, cx, inputClass } from '@/components/ui';
 import { ModuleWidget } from '@/components/widgets';
@@ -12,6 +12,7 @@ import { sampleProfileOf } from '@/core/data/generate';
 import type { ConnectionStatus, ConnectionType, ModuleManifest } from '@/core/types';
 import { count, delta, formatMetric, yen } from '@/lib/format';
 import { getModule } from '@/modules';
+import { toolForModule, toolUrl } from '@/core/tools';
 import { useApp, useWorkspace } from '@/store/app';
 import { useDataset } from '@/store/hooks';
 import { useToast } from '@/store/toast';
@@ -55,6 +56,7 @@ export function ModulePage() {
           </div>
         }
       />
+      <ToolLinks moduleId={module.id} />
       <Tabs<Tab>
         value={tab}
         onChange={setTab}
@@ -425,6 +427,42 @@ function DataTab({ module }: { module: ModuleManifest }) {
           </div>
         </Card>
       </div>
+    </div>
+  );
+}
+
+/** "詳しくは各ツールで" — deep links into the existing tool for this client. */
+function ToolLinks({ moduleId }: { moduleId: string }) {
+  const ws = useWorkspace();
+  const tool = toolForModule(moduleId);
+  if (!tool) return null;
+  const main = toolUrl(ws, tool.id);
+  if (!main) {
+    return (
+      <p className="text-xs text-muted">
+        詳細分析は {tool.name} で行います。
+        <Link to="/settings#tools" className="ml-1 text-accent hover:underline">接続先を設定</Link>
+        すると、この企業の画面へ直接移動できます。
+      </p>
+    );
+  }
+  const linked = !!ws.toolLinks?.[tool.id]?.ref && tool.sections;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2.5 text-[13px]">
+      <span className="text-ink-2">詳しい分析・運用は</span>
+      <a href={main} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 font-medium text-accent hover:underline">
+        {tool.name} で開く <ExternalLink size={12} />
+      </a>
+      {linked && (
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="text-muted">·</span>
+          {tool.sections!.map((s) => (
+            <a key={s.id} href={toolUrl(ws, tool.id, s.id)} target="_blank" rel="noreferrer noopener" className="rounded-md border border-line px-2 py-0.5 text-xs text-ink-2 hover:border-accent hover:text-ink">
+              {s.name}
+            </a>
+          ))}
+        </span>
+      )}
     </div>
   );
 }
