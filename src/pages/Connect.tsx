@@ -1,11 +1,11 @@
-import { Check, ClipboardPaste, Copy, FileUp } from 'lucide-react';
+import { Check, ClipboardPaste, Copy, FileUp, RefreshCw, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, Card, PageHeader, cx, inputClass } from '@/components/ui';
 import { convertNative, TOOL_LABEL, type ConnectorResult, type SourceTool } from '@/core/connectors';
 import { normalizeBridgeRows } from '@/core/data/bridge';
 import { getModule } from '@/modules';
-import { toolById, toolUrl } from '@/core/tools';
+import { TOOLS as TOOL_DEFS, toolById, toolUrl } from '@/core/tools';
 import { useApp, useWorkspace } from '@/store/app';
 import { useToast } from '@/store/toast';
 
@@ -92,6 +92,7 @@ export function Connect() {
         title="連携ハブ"
         description="個別に作ってきた 6 つのツールを 1 つにつなぎます。各ツールが出力している JSON をそのまま取り込めます（ツール側の改修は不要）。形式は自動で判別します。"
       />
+      <BulkRefresh />
       <QuickImport />
       <ol className="grid gap-4 xl:grid-cols-2">
         {TOOLS.map((t, i) => (
@@ -99,7 +100,7 @@ export function Connect() {
         ))}
       </ol>
       <p className="text-xs text-muted">
-        Phase 2 では、各ツールにブリッジ API を追加し、中継サーバーが定期的に自動取得します（docs/05-integration-design.md §7）。
+        ブリッジ API はこの画面（ブラウザ）から各ツールへ直接取りに行きます。各ツールが動いている PC で開いてください（docs/06-deployment.md §8.9）。
       </p>
     </div>
   );
@@ -142,6 +143,126 @@ function useApply() {
   };
 }
 
+// API tokens typed in this tab — kept in memory only (never saved), so they survive page moves but not a reload.
+const sessionTokens = new Map<string, string>();
+
+type FetchOutcome = { ok: true; body: string } | { ok: false; message: string };
+
+async function fetchBridge(apiUrl: string, token: string): Promise<FetchOutcome> {
+  try {
+    const res = await fetch(apiUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+    const body = await res.text();
+    if (res.status === 401) return { ok: false, message: 'トークンが必要か、一致しません（ツール側の BRIDGE_TOKEN）。' };
+    if (!res.ok) return { ok: false, message: `API がエラーを返しました（${res.status}）：${body.slice(0, 200)}` };
+    return { ok: true, body };
+  } catch {
+    return {
+      ok: false,
+      message: 'API に接続できませんでした。ツールが起動しているか、URL と ID（設定 → 各ツールの接続先）、ツール側の CORS 許可リストにこの画面の URL が入っているかを確認してください。',
+    };
+  }
+}
+
+/** Fetches every configured bridge API for the active client at once. */
+function BulkRefresh() {
+  const ws = useWorkspace();
+  const apply = useApply();
+  const notify = useToast((s) => s.notify);
+  const targets = TOOL_DEFS.flatMap((def) => {
+    const link = ws.toolLinks?.[def.id];
+    return def.bridgeUrl && link?.url && link.ref ? [{ def, url: def.bridgeUrl(link, 90) }] : [];
+  });
+  const [tokens, setTokens] = useState<Record<string, string>>(() => Object.fromEntries(targets.map((t) => [t.def.id, sessionTokens.get(`${ws.id}:${t.def.id}`) ?? ''])));
+  const [status, setStatus] = useState<Record<string, { tone: 'good' | 'bad' | 'busy'; text: string }>>({});
+  const [running, setRunning] = useState(false);
+
+  const setToken = (id: string, v: string) => {
+    sessionTokens.set(`${ws.id}:${id}`, v);
+    setTokens((t) => ({ ...t, [id]: v }));
+  };
+
+  const run = async () => {
+    setRunning(true);
+    setStatus(Object.fromEntries(targets.map((t) => [t.def.id, { tone: 'busy' as const, text: '取得中…' }])));
+    let okCount = 0;
+    await Promise.all(
+      targets.map(async ({ def, url }) => {
+        const out = await fetchBridge(url, tokens[def.id] ?? '');
+        let next: { tone: 'good' | 'bad'; text: string };
+        if (!out.ok) next = { tone: 'bad', text: out.message };
+        else {
+          const r = convertNative(out.body);
+          if (r.kind === 'error') next = { tone: 'bad', text: r.message };
+          else if (r.tool !== def.id) next = { tone: 'bad', text: `${TOOL_LABEL[r.tool]} の形式が返ってきました。接続先の URL を確認してください。` };
+          else {
+            next = { tone: 'good', text: apply(r) };
+            okCount++;
+          }
+        }
+        setStatus((s) => ({ ...s, [def.id]: next }));
+      }),
+    );
+    setRunning(false);
+    notify(`${targets.length} ツール中 ${okCount} ツールのデータを更新しました`);
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold">まとめて更新</p>
+          <p className="mt-0.5 text-xs text-ink-2">
+            {targets.length
+              ? `${ws.name} の接続先を設定済みのツール（${targets.length} 件）から、直近 90 日のデータをまとめて取り込みます。`
+              : 'ブリッジ API に対応したツールの接続先（URL と ID）を設定すると、ここからまとめて取り込めます。'}
+          </p>
+        </div>
+        {targets.length ? (
+          <Button size="sm" variant="primary" disabled={running} onClick={run}>
+            <RefreshCw size={13} className={running ? 'animate-spin' : undefined} /> {running ? '取得中…' : 'すべて更新'}
+          </Button>
+        ) : (
+          <Link to="/settings#tools" className="text-xs text-accent hover:underline">
+            接続先を設定
+          </Link>
+        )}
+      </div>
+      {targets.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {targets.map(({ def }) => {
+            const st = status[def.id];
+            return (
+              <li key={def.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs">
+                <span className="w-36 shrink-0 font-medium">{def.name}</span>
+                <input
+                  aria-label={`${def.name} の API トークン（任意）`}
+                  type="password"
+                  autoComplete="off"
+                  className={cx(inputClass, 'h-7! w-36! text-xs!')}
+                  placeholder="トークン（任意）"
+                  value={tokens[def.id] ?? ''}
+                  onChange={(e) => setToken(def.id, e.target.value)}
+                />
+                <span
+                  className={cx(
+                    'flex min-w-0 flex-1 items-center gap-1',
+                    st?.tone === 'good' ? 'text-good-ink' : st?.tone === 'bad' ? 'text-critical-ink' : 'text-muted',
+                  )}
+                >
+                  {st?.tone === 'good' && <Check size={13} className="shrink-0" />}
+                  {st?.tone === 'bad' && <X size={13} className="shrink-0" />}
+                  {st?.text ?? '未取得'}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="mt-2 text-[11px] text-muted">トークンは保存されません（この画面を再読み込みすると消えます）。</p>
+    </Card>
+  );
+}
+
 function Importer({ expect, compact, apiUrl }: { expect?: SourceTool; compact?: boolean; apiUrl?: string }) {
   const apply = useApply();
   const notify = useToast((s) => s.notify);
@@ -149,28 +270,22 @@ function Importer({ expect, compact, apiUrl }: { expect?: SourceTool; compact?: 
   const [text, setText] = useState('');
   const [result, setResult] = useState<ConnectorResult | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const [token, setToken] = useState('');
+  const wsId = useWorkspace().id;
+  const tokenKey = `${wsId}:${expect ?? ''}`;
+  const [token, setTokenState] = useState(() => sessionTokens.get(tokenKey) ?? '');
+  const setToken = (v: string) => {
+    sessionTokens.set(tokenKey, v);
+    setTokenState(v);
+  };
   const [loading, setLoading] = useState(false);
 
   const fetchApi = async () => {
     if (!apiUrl) return;
     setLoading(true);
-    try {
-      const res = await fetch(apiUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
-      const body = await res.text();
-      if (!res.ok) {
-        setResult({ kind: 'error', message: `API がエラーを返しました（${res.status}）：${body.slice(0, 200)}` });
-        return;
-      }
-      preview(body);
-    } catch {
-      setResult({
-        kind: 'error',
-        message: 'API に接続できませんでした。ツールが起動しているか、URL と ID（設定 → 各ツールの接続先）、ツール側の CORS 許可（BRIDGE_ALLOWED_ORIGINS）を確認してください。',
-      });
-    } finally {
-      setLoading(false);
-    }
+    const out = await fetchBridge(apiUrl, token);
+    setLoading(false);
+    if (out.ok) preview(out.body);
+    else setResult({ kind: 'error', message: out.message });
   };
 
   const preview = (source: string) => {
@@ -209,7 +324,7 @@ function Importer({ expect, compact, apiUrl }: { expect?: SourceTool; compact?: 
               aria-label="API トークン（任意）"
               type="password"
               autoComplete="off"
-              className={cx(inputClass, 'h-7 w-40 text-xs')}
+              className={cx(inputClass, 'h-7! w-40! text-xs!')}
               placeholder="トークン（任意）"
               value={token}
               onChange={(e) => setToken(e.target.value)}

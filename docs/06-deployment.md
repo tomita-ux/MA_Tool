@@ -200,3 +200,21 @@ Tunnel の公開ホスト名にも Access アプリケーションを設定し�
 cp .dev.vars.example .dev.vars   # DEV_AUTH_EMAIL で指定したユーザーとしてログイン扱い（localhost のみ有効）
 npm run cf:dev                   # http://localhost:8788
 ```
+
+### 8.9 公開版 MA Compass から各ツールのデータを取得する
+連携ハブの「すべて更新」「API から取得」は、**画面を開いているブラウザ**から各ツールのブリッジ API（`http://localhost:…`）へ直接取りに行きます。独自ドメインと Tunnel が決まるまでは、次の運用にします。
+
+1. ツールを起動している PC で、公開版 MA Compass（`https://ma-compass.pages.dev`）を開く
+2. 各ツールの CORS 許可リストに公開版の URL を追加する（`.env`）
+
+   | ツール | 設定 |
+   |---|---|
+   | ads-bi-dashboard | `CORS_ALLOWED_ORIGINS=http://localhost:5173,https://ma-compass.pages.dev` |
+   | GA-Dashboard | `BRIDGE_ALLOWED_ORIGINS=http://localhost:5173,https://ma-compass.pages.dev` |
+   | seo-dashboard | `BRIDGE_ALLOWED_ORIGINS=http://localhost:5173,https://ma-compass.pages.dev` |
+   | sns-dashboard | `CORS_ALLOWED_ORIGINS=http://localhost:5173,https://ma-compass.pages.dev` |
+
+3. 各ツールに `BRIDGE_TOKEN` を設定し、同じ値を連携ハブのトークン欄に入力する（トークンは保存されず、再読み込みで消えます）
+4. 初回の取得時に Chrome が「ローカル ネットワーク上のデバイスへのアクセス」の許可を求めたら「許可」する
+
+取り込んだデータは D1 に保存されるため、閲覧者（支援先の担当者）はツールがない環境でも最新の取り込み結果を見られます。取得（更新）できるのは管理者のみです。
