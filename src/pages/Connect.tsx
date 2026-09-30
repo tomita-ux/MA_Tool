@@ -74,9 +74,12 @@ const TOOLS: ToolSpec[] = [
   {
     tool: 'sns-dashboard',
     role: '個人ユーザーとの接点とコミュニケーション状況を可視化する',
-    feeds: 'SNS モジュール（プラットフォーム別の表示回数）',
+    feeds: 'SNS モジュール（プラットフォーム別の表示回数・エンゲージメント・サイトクリック）',
     moduleId: 'sns',
-    exports: [{ label: 'API レスポンス', how: 'GET http://localhost:3002/api/metrics/clients/<clientId>/daily?metric=impressions&days=90' }],
+    exports: [
+      { label: 'ブリッジ API', how: 'GET http://localhost:3002/api/bridge/<clientId>?from=&to=' },
+      { label: 'API レスポンス', how: 'GET http://localhost:3002/api/metrics/clients/<clientId>/daily?metric=impressions&days=90' },
+    ],
     policy: '投稿の承認・予約などの運用は sns-dashboard に残し、成果の数値を取り込みます。',
   },
 ];

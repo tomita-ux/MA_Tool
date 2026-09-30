@@ -299,6 +299,39 @@ export function fromVisibilityDiagnosis(input: Obj): ConnectorResult {
 
 const SNS_STAGE: Record<string, StageId> = { instagram: 'awareness', tiktok: 'awareness', facebook: 'awareness', threads: 'interest', x: 'interest', youtube: 'interest', linkedin: 'interest', line: 'loyalty' };
 
+/** sns-dashboard GET /api/bridge/:clientId — day × platform with engagements and site clicks. */
+export function fromSnsBridge(input: Obj): ConnectorResult {
+  const rows: BridgeRow[] = arr(input.records)
+    .filter(isObj)
+    .map((r) => {
+      const m = isObj(r.metrics) ? r.metrics : {};
+      const platform = str(r.campaign) || '(不明)';
+      return {
+        date: str(r.date).slice(0, 10),
+        campaign: platform,
+        segment: '',
+        stage: SNS_STAGE[platform] ?? 'awareness',
+        metrics: { impressions: num(m.impressions), engagements: num(m.engagements), clicks: num(m.clicks), sessions: num(m.clicks) },
+      };
+    });
+  if (!rows.length) {
+    const last = str(input.lastMetricsDate);
+    return { kind: 'error', message: `指定期間の SNS データがありません。${last ? `最終取得日は ${last} です。` : ''}sns-dashboard でメトリクスを取得してください。` };
+  }
+  const client = isObj(input.client) ? str(input.client.name) : '';
+  return {
+    kind: 'bridge',
+    tool: 'sns-dashboard',
+    moduleId: 'sns',
+    rows,
+    label: `sns-dashboard API${client ? `（${client}）` : ''}`,
+    notes: [
+      `${new Set(rows.map((r) => r.campaign)).size} プラットフォーム × ${new Set(rows.map((r) => r.date)).size} 日分の表示回数・エンゲージメント・サイトクリックを取り込みます。`,
+      'エンゲージメントは投稿日に計上しています。サイト流入（セッション）はサイトクリックで代用しています。',
+    ],
+  };
+}
+
 /** GET /api/metrics/clients/:id/daily?metric=impressions|reach → sns module (platform = campaign). */
 export function fromSnsDaily(input: Obj): ConnectorResult {
   const metric = str(input.metric) || 'impressions';
@@ -318,7 +351,7 @@ export function fromSnsDaily(input: Obj): ConnectorResult {
     moduleId: 'sns',
     rows,
     label: `sns-dashboard（${metric}）`,
-    notes: [`${new Set(rows.map((r) => r.campaign)).size} プラットフォーム × ${new Set(rows.map((r) => r.date)).size} 日分の${metric === 'reach' ? 'リーチ' : '表示回数'}を取り込みます。`, 'エンゲージメント・サイト流入は sns-dashboard 側に日次の出力を追加すると連携できます（設計書 §5）。'],
+    notes: [`${new Set(rows.map((r) => r.campaign)).size} プラットフォーム × ${new Set(rows.map((r) => r.date)).size} 日分の${metric === 'reach' ? 'リーチ' : '表示回数'}を取り込みます。`, 'エンゲージメント・サイト流入も取り込むには sns-dashboard のブリッジ API（/api/bridge/<clientId>）を使ってください。'],
   };
 }
 
@@ -427,6 +460,7 @@ export function convertNative(textInput: string): ConnectorResult {
     if (data.source === 'ads-bi-dashboard' && Array.isArray(data.records)) return fromAdsBiBridge(data);
     if (data.source === 'ga-dashboard' && Array.isArray(data.records)) return fromGaBridge(data);
     if (data.source === 'seo-dashboard' && Array.isArray(data.records)) return fromSeoBridge(data);
+    if (data.source === 'sns-dashboard' && Array.isArray(data.records)) return fromSnsBridge(data);
     if (data.source === 'strategy-agents' || (isObj(data.report) && isObj((data.report as Obj).brief))) return fromStrategyAgents(data);
     if (isObj(data.tvs) && (isObj(data.llmCitationAnalysis) || isObj(data.meta))) return fromVisibilityDiagnosis(data);
     if (isObj(data.matrix)) return fromSeoRankings(data);

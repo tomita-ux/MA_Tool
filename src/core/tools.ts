@@ -70,7 +70,14 @@ export const TOOLS: ToolDef[] = [
     bridgeUrl: (l, days) => `${base(l.url)}/api/bridge?${q({ domain_id: l.ref, from: isoDaysAgo(days), to: isoDaysAgo(1) })}`,
   },
   { id: 'seo-geo-aio-llmo', name: 'seo-geo-aio-llmo', moduleId: 'ai-search', refLabel: 'クライアント slug', defaultUrl: '' },
-  { id: 'sns-dashboard', name: 'sns-dashboard', moduleId: 'sns', refLabel: 'クライアント ID', defaultUrl: '' },
+  {
+    id: 'sns-dashboard',
+    name: 'sns-dashboard',
+    moduleId: 'sns',
+    refLabel: 'クライアント ID',
+    defaultUrl: 'http://localhost:3002',
+    bridgeUrl: (l, days) => `${base(l.url)}/api/bridge/${encodeURIComponent(l.ref ?? '')}?${q({ from: isoDaysAgo(days), to: isoDaysAgo(1) })}`,
+  },
 ];
 
 export const toolById = (id: ToolId) => TOOLS.find((t) => t.id === id)!;

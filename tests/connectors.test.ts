@@ -179,4 +179,16 @@ describe('Phase 2 bridge APIs', () => {
     expect(empty.kind).toBe('error');
     if (empty.kind === 'error') expect(empty.message).toMatch(/2026-08-31/);
   });
+
+  it('sns-dashboard bridge → day × platform with engagements', () => {
+    const r = convertNative(j({ module: 'sns', source: 'sns-dashboard', client: { name: 'デモ社' }, records: [
+      { date: '2026-09-29', campaign: 'x', metrics: { impressions: 6993, reach: 3533, clicks: 42, engagements: 286, posts: 1 } },
+      { date: '2026-09-29', campaign: 'instagram', metrics: { impressions: 100, reach: 80, clicks: 1, engagements: 9, posts: 0 } },
+    ] }));
+    expect(r.kind).toBe('bridge');
+    if (r.kind !== 'bridge') return;
+    expect(r.moduleId).toBe('sns');
+    expect(r.rows.map((x) => x.stage)).toEqual(['interest', 'awareness']);
+    expect(r.rows[0].metrics).toEqual({ impressions: 6993, engagements: 286, clicks: 42, sessions: 42 });
+  });
 });
