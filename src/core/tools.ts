@@ -61,7 +61,14 @@ export const TOOLS: ToolDef[] = [
     deepLink: (l, s) => `${base(l.url)}/?${q({ client: l.ref, section: s })}`,
     bridgeUrl: (l, days) => `${base(l.url)}/api/bridge/${encodeURIComponent(l.ref ?? '')}?${q({ start: isoDaysAgo(days), end: isoDaysAgo(1) })}`,
   },
-  { id: 'seo-dashboard', name: 'seo-dashboard', moduleId: 'seo', refLabel: 'ドメイン ID', defaultUrl: 'http://localhost:3002' },
+  {
+    id: 'seo-dashboard',
+    name: 'seo-dashboard',
+    moduleId: 'seo',
+    refLabel: 'ドメイン ID',
+    defaultUrl: 'http://localhost:3002',
+    bridgeUrl: (l, days) => `${base(l.url)}/api/bridge?${q({ domain_id: l.ref, from: isoDaysAgo(days), to: isoDaysAgo(1) })}`,
+  },
   { id: 'seo-geo-aio-llmo', name: 'seo-geo-aio-llmo', moduleId: 'ai-search', refLabel: 'クライアント slug', defaultUrl: '' },
   { id: 'sns-dashboard', name: 'sns-dashboard', moduleId: 'sns', refLabel: 'クライアント ID', defaultUrl: '' },
 ];

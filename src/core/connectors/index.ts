@@ -193,6 +193,35 @@ export function fromSeoGsc(input: Obj): ConnectorResult {
   };
 }
 
+/** seo-dashboard GET /api/bridge — Search Console daily in bridge format. */
+export function fromSeoBridge(input: Obj): ConnectorResult {
+  const rows: BridgeRow[] = arr(input.records)
+    .filter(isObj)
+    .map((r) => {
+      const m = isObj(r.metrics) ? r.metrics : {};
+      return {
+        date: str(r.date).slice(0, 10),
+        campaign: str(r.campaign) || 'Search Console（全体）',
+        segment: '',
+        stage: 'consideration' as StageId,
+        metrics: { impressions: num(m.impressions), clicks: num(m.clicks), sessions: num(m.clicks) },
+      };
+    });
+  if (!rows.length) {
+    const last = str(input.lastFetchedDate);
+    return { kind: 'error', message: `指定期間の Search Console データがありません。${last ? `最終取得日は ${last} です。` : ''}seo-dashboard で「GSC 同期」を実行してください。` };
+  }
+  const domain = isObj(input.domain) ? str(input.domain.name) : '';
+  return {
+    kind: 'bridge',
+    tool: 'seo-dashboard',
+    moduleId: 'seo',
+    rows,
+    label: `seo-dashboard API${domain ? `（${domain}）` : ''}`,
+    notes: [`${rows.length} 日分の表示回数・クリックを取り込みます。`, 'Search Console には CV がないため、SEO の CV は GA4 側で計測してください。セッションはクリック数で代用しています。'],
+  };
+}
+
 /** GET /api/rankings/matrix → keyword ranking table (latest rank per keyword). */
 export function fromSeoRankings(input: Obj): ConnectorResult {
   const matrix = isObj(input.matrix) ? input.matrix : {};
@@ -397,6 +426,7 @@ export function convertNative(textInput: string): ConnectorResult {
   if (isObj(data)) {
     if (data.source === 'ads-bi-dashboard' && Array.isArray(data.records)) return fromAdsBiBridge(data);
     if (data.source === 'ga-dashboard' && Array.isArray(data.records)) return fromGaBridge(data);
+    if (data.source === 'seo-dashboard' && Array.isArray(data.records)) return fromSeoBridge(data);
     if (data.source === 'strategy-agents' || (isObj(data.report) && isObj((data.report as Obj).brief))) return fromStrategyAgents(data);
     if (isObj(data.tvs) && (isObj(data.llmCitationAnalysis) || isObj(data.meta))) return fromVisibilityDiagnosis(data);
     if (isObj(data.matrix)) return fromSeoRankings(data);

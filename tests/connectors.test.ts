@@ -168,4 +168,15 @@ describe('Phase 2 bridge APIs', () => {
     expect(r.rows).toHaveLength(2);
     expect(r.rows.find((x) => x.campaign === 'direct')?.metrics.conversions).toBe(3);
   });
+
+  it('seo-dashboard bridge → daily Search Console rows', () => {
+    const r = convertNative(j({ module: 'seo', source: 'seo-dashboard', domain: { name: 'Example' }, records: [{ date: '2026-09-01', campaign: 'Search Console（全体）', metrics: { impressions: 200, clicks: 10, ctr: 0.05, position: 8 } }] }));
+    expect(r.kind).toBe('bridge');
+    if (r.kind !== 'bridge') return;
+    expect(r.moduleId).toBe('seo');
+    expect(r.rows[0].metrics).toEqual({ impressions: 200, clicks: 10, sessions: 10 });
+    const empty = convertNative(j({ source: 'seo-dashboard', records: [], lastFetchedDate: '2026-08-31' }));
+    expect(empty.kind).toBe('error');
+    if (empty.kind === 'error') expect(empty.message).toMatch(/2026-08-31/);
+  });
 });

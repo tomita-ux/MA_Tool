@@ -57,10 +57,11 @@ const TOOLS: ToolSpec[] = [
     feeds: 'SEO モジュール（表示回数・クリック）、キーワード順位表',
     moduleId: 'seo',
     exports: [
+      { label: 'ブリッジ API', how: 'GET http://localhost:3002/api/bridge?domain_id=<id>&from=&to=' },
       { label: 'Search Console 日次', how: 'GET http://localhost:3002/api/gsc/metrics?domain_id=<id>&days=90' },
       { label: '順位マトリクス', how: 'GET http://localhost:3002/api/rankings/matrix?domain_id=<id>&year=<年>&month=<月>' },
     ],
-    policy: 'seo-dashboard は認証が仮実装で API キーが平文保存のため、埋め込みではなくデータ連携で統合します。',
+    policy: '埋め込みではなくブリッジ API で統合します。seo-dashboard 側で SECRETS_KEY（認証情報の暗号化）と、公開時は AUTH_MODE=access を設定してください。',
   },
   {
     tool: 'seo-geo-aio-llmo',

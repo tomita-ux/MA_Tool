@@ -106,7 +106,7 @@ strategy-agents の成果物を、実行と接続する形で表示します。
 |---|---|---|
 | GA-Dashboard（**実装済み**） | `GET /api/bridge?propertyId&startDate&endDate` | `ga4-fetcher.js` に `['date','sessionCampaignName','sessionDefaultChannelGroup']` × `['sessions','engagedSessions','conversions','purchaseRevenue']` の定義を追加 |
 | ads-bi-dashboard（**実装済み**） | `GET /api/bridge/:clientId?preset` | GAQL に `segments.date, campaign.name, campaign.advertising_channel_type, metrics.conversions_value` を追加。`cost_micros / 1e6`。`isMock` を必ず返す |
-| seo-dashboard | `GET /api/bridge?domain_id&from&to` | GSC を `['date','query']` で日次取得し、キーワードのカテゴリ別に集計 |
+| seo-dashboard（**実装済み**） | `GET /api/bridge?domain_id&from&to` | 取得済みの `gsc_metrics_daily` を日次で返す（第 1 段階）。キーワードのカテゴリ別集計（GSC を `['date','query']` で取得）は次段階 |
 | seo-geo-aio-llmo | （data.json のスキーマ拡張） | `llmCitationAnalysis.queryMatrix[{keyword, llm, cited, form, withLink}]` を追加し、トピック×エンジン行列を実測に置き換える |
 | sns-dashboard | `GET /api/bridge/:clientId?days` | `metrics_account_daily` と `metrics_post` を日×プラットフォームで集計（engagements＝いいね＋コメント＋シェア＋保存、clicks＝website_clicks） |
 | strategy-agents | 最終ステップで `strategy.json` を出力 | `05_final` / `T5` 完了時に `scripts/export-strategy.mjs` 相当を自動実行。トリップワイヤーに `metric / op / value` を持たせると手動設定が不要になる |
@@ -119,6 +119,7 @@ strategy-agents の成果物を、実行と接続する形で表示します。
 |---|---|---|
 | ads-bi-dashboard | 実装済み（ブランチ `claude/clever-turing-ah636y`） | `/api/bridge/:clientId`（キャンペーン×日次、売上＝conversions_value、推定時は `revenueSource` で明示、モック時は `isMock`）、`?client=&section=` のディープリンク |
 | GA-Dashboard | 実装済み（同上） | 取得定義 `daily-campaign-channels`、`/api/bridge`（CORS 許可リスト・任意の Bearer トークン・登録済みプロパティのみ）、`?propertyId=&tab=` のディープリンク、テスト |
+| seo-dashboard | 実装済み（同上） | `/api/bridge`（Search Console 日次、CORS 許可リスト・任意の Bearer トークン）、認証情報の暗号化保存（`SECRETS_KEY`、既存の平文は起動時に移行）、環境変数での受け渡し、`AUTH_MODE=access`（Cloudflare Access の JWT 検証）、待ち受けを `127.0.0.1` に限定、テスト |
 | MA Compass | 実装済み | 連携ハブの「API から取得」、支援先ごとの接続先設定、チャネル画面から各ツールへの詳細リンク、支援先一覧 |
 
 ## 6. 戦略 ↔ 実行ループの設計
@@ -154,8 +155,8 @@ Phase 3 では、MA Compass の実績を strategy-agents の T4（戦術批評�
 
 | 重要度 | リポジトリ | 内容 | 推奨対応 |
 |---|---|---|---|
-| 高 | seo-dashboard | Claude API キー・DataForSEO 認証情報・Google トークンを SQLite に平文保存、認証が仮実装 | 環境変数へ移し、トークンは暗号化。外部公開しない |
-| 中 | ads-bi-dashboard | 認証情報がないと自動でモックを返す。CORS が全開放 | ブリッジ出力に `isMock` を含める。CORS を許可リスト化 |
+| 高→対応済み | seo-dashboard | Claude API キー・DataForSEO 認証情報・Google トークンを SQLite に平文保存、認証が仮実装 | 対応済み（§5.1）。運用時に `SECRETS_KEY` を設定すること |
+| 中→対応済み | ads-bi-dashboard | 認証情報がないと自動でモックを返す。CORS が全開放 | 対応済み：ブリッジ出力に `isMock`、CORS 許可リスト（`CORS_ALLOWED_ORIGINS`）、`BRIDGE_TOKEN` |
 | 中 | seo-geo-aio-llmo | 報告書バージョン間でフィールド名が揺れる（例：`projectedTvs` / `tvsForecast`） | スキーマのバージョンを固定（取り込み側は主要項目のみ使用） |
 | 低 | sns-dashboard | ドキュメント間でポート番号が不一致（3001 / 3002） | 表記統一 |
 | 低 | strategy-agents | 出力が文章中心で数値が文字列（「¥800万」「20%」） | トリップワイヤーと KPI に数値フィールドを追加 |
