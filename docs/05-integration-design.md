@@ -109,7 +109,7 @@ strategy-agents の成果物を、実行と接続する形で表示します。
 | seo-dashboard（**実装済み**） | `GET /api/bridge?domain_id&from&to` | 取得済みの `gsc_metrics_daily` を日次で返す（第 1 段階）。キーワードのカテゴリ別集計（GSC を `['date','query']` で取得）は次段階 |
 | seo-geo-aio-llmo | （data.json のスキーマ拡張） | `llmCitationAnalysis.queryMatrix[{keyword, llm, cited, form, withLink}]` を追加し、トピック×エンジン行列を実測に置き換える |
 | sns-dashboard（**実装済み**） | `GET /api/bridge/:clientId?from&to` | `metrics_account_daily` と `metrics_post` を日×プラットフォームで集計（engagements＝いいね＋コメント＋シェア＋保存、clicks＝website_clicks） |
-| strategy-agents | 最終ステップで `strategy.json` を出力 | `05_final` / `T5` 完了時に `scripts/export-strategy.mjs` 相当を自動実行。トリップワイヤーに `metric / op / value` を持たせると手動設定が不要になる |
+| strategy-agents（**実装済み**） | 最終ステップで `output/ma-compass.json` を出力 | `05_final` / `T5` 完了時に `scripts/export-strategy.mjs` 相当を自動実行。トリップワイヤーに `metric / op / value` を持たせると手動設定が不要になる |
 
 ---
 
@@ -121,6 +121,7 @@ strategy-agents の成果物を、実行と接続する形で表示します。
 | GA-Dashboard | 実装済み（同上） | 取得定義 `daily-campaign-channels`、`/api/bridge`（CORS 許可リスト・任意の Bearer トークン・登録済みプロパティのみ）、`?propertyId=&tab=` のディープリンク、テスト |
 | seo-dashboard | 実装済み（同上） | `/api/bridge`（Search Console 日次、CORS 許可リスト・任意の Bearer トークン）、認証情報の暗号化保存（`SECRETS_KEY`、既存の平文は起動時に移行）、環境変数での受け渡し、`AUTH_MODE=access`（Cloudflare Access の JWT 検証）、待ち受けを `127.0.0.1` に限定、テスト |
 | sns-dashboard | 実装済み（同上） | `/api/bridge/:clientId`（日×媒体の表示・リーチ・サイトクリック・エンゲージメント・投稿数）、任意の Bearer トークン、CORS を全開放から許可リストへ変更、テスト |
+| strategy-agents | 実装済み（同上） | `npm run export:ma`（`output/ma-compass.json`）、戦略・戦術フェーズの完了条件に書き出しを追加、トリップワイヤーの任意項目 `monitor`（指標・向き・閾値・チャネル）。MA Compass は `monitor` 付きの警戒線を取り込み直後から自動監視 |
 | MA Compass | 実装済み | 連携ハブの「API から取得」、支援先ごとの接続先設定、チャネル画面から各ツールへの詳細リンク、支援先一覧 |
 
 ## 6. 戦略 ↔ 実行ループの設計

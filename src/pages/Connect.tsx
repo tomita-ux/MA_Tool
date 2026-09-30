@@ -26,7 +26,10 @@ const TOOLS: ToolSpec[] = [
     tool: 'strategy-agents',
     role: '企業の経営戦略とマーケティング戦術を可視化する',
     feeds: '経営戦略画面（KGI・トリップワイヤー・チャネル配分・100日プラン）、セグメント、施策ボード',
-    exports: [{ label: 'プロジェクトを書き出す', how: 'node scripts/export-strategy.mjs <strategy-agents>/projects/<id>' }],
+    exports: [
+      { label: 'strategy-agents で書き出す', how: 'npm run export:ma -- projects/<id>  → projects/<id>/output/ma-compass.json' },
+      { label: 'MA Compass 側から書き出す', how: 'node scripts/export-strategy.mjs <strategy-agents>/projects/<id>' },
+    ],
     policy: '戦略の生成は strategy-agents（Claude Code）で行い、結果の JSON を取り込みます。',
   },
   {
@@ -135,7 +138,7 @@ function useApply() {
       case 'plan': {
         // keep monitoring rules the user already set for tripwires with the same wording
         const prev = ws.plan?.tripwires ?? [];
-        const tripwires = r.plan.tripwires.map((t) => ({ ...t, rule: prev.find((p) => p.cond === t.cond)?.rule }));
+        const tripwires = r.plan.tripwires.map((t) => ({ ...t, rule: t.rule ?? prev.find((p) => p.cond === t.cond)?.rule }));
         update({ plan: { ...r.plan, tripwires } });
         return `経営戦略「${r.plan.project}」を取り込みました`;
       }

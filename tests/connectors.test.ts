@@ -132,6 +132,24 @@ describe('strategy ↔ execution link', () => {
     expect(ins[0].priority).toBe('high');
   });
 
+  it('reads machine-checkable tripwires (monitor) from strategy-agents', () => {
+    const r = convertNative(j({ source: 'strategy-agents', project: 'p', report: { brief: { title: 'p' }, risk: { tripwires: [
+      { cond: 'CV が計画比70%未満', action: '配分見直し', monitor: { metric: 'conversions', op: '<', value: 56 } },
+      { cond: '検索広告 CPA 3万円超', action: '入札見直し', monitor: { metric: 'cpa', op: '>', value: 30000, channel: 'google-ads' } },
+      { cond: '不正な監視', action: '-', monitor: { metric: 'leads', op: '<', value: 1 } },
+      { cond: '競合の発表', action: '差分デモ' },
+    ] } } }));
+    expect(r.kind).toBe('plan');
+    if (r.kind !== 'plan') return;
+    expect(r.plan.tripwires.map((t) => t.rule)).toEqual([
+      { metric: 'conversions', op: '<', value: 56 },
+      { metric: 'cpa', op: '>', value: 30000, moduleId: 'google-ads' },
+      undefined,
+      undefined,
+    ]);
+    expect(r.notes.join()).toMatch(/2 件は指標と閾値付き/);
+  });
+
   it('compares planned channel mix with actual shares', () => {
     const w = ws('lumiere');
     const rows = planVsActual(buildDataset(w, 28, {}, today), w.plan!);

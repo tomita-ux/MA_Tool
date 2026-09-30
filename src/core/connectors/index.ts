@@ -1,5 +1,5 @@
 import type { BridgeRow } from '../data/bridge';
-import type { AiDiagnosis, KeywordSeed, StageId, StrategyPlan } from '../types';
+import type { AiDiagnosis, KeywordSeed, StageId, StrategyPlan, TripMetric, TripRule } from '../types';
 
 // Native-format connectors for the existing tools (docs/05-integration-design.md §4).
 // Each converter takes the JSON a tool already produces — an API response or a cache file —
@@ -357,6 +357,18 @@ export function fromSnsDaily(input: Obj): ConnectorResult {
 
 // ─── strategy-agents ─────────────────────────────────────────────────────────
 
+const TRIP_METRIC_IDS: TripMetric[] = ['conversions', 'cpa', 'cvr', 'sessions', 'cost', 'roas'];
+
+/** strategy-agents REPORT_DATA risk.tripwires[].monitor → TripRule (docs/report-design-system.md §9 there). */
+function monitorRule(m: unknown): TripRule | undefined {
+  if (!isObj(m)) return undefined;
+  const metric = str(m.metric) as TripMetric;
+  const value = typeof m.value === 'number' ? m.value : NaN;
+  if (!TRIP_METRIC_IDS.includes(metric) || (m.op !== '<' && m.op !== '>') || !Number.isFinite(value)) return undefined;
+  const channel = str(m.channel);
+  return { metric, op: m.op, value, ...(channel ? { moduleId: channel } : {}) };
+}
+
 /**
  * Output of `node scripts/export-strategy.mjs <project>`:
  * { source: 'strategy-agents', project, report: REPORT_DATA, tactics?: TACTICS_DATA }
@@ -413,7 +425,7 @@ export function fromStrategyAgents(input: Obj): ConnectorResult {
     channels: tacticChannels.length
       ? tacticChannels.map((c) => ({ name: text(c.name), sharePct: c.investment != null ? num(c.investment) : undefined, amount: str(c.amount) || undefined, note: text(c.roi) || undefined }))
       : arr(gtm.channels).filter(isObj).map((c) => ({ name: text(c.name), amount: str(c.cost) || undefined, note: [text(c.leads) && `リード ${text(c.leads)}`, text(c.cpl) && `CPL ${text(c.cpl)}`].filter(Boolean).join(' / ') || undefined })),
-    tripwires: arr(risk.tripwires).filter(isObj).map((t, i) => ({ id: `TW${i + 1}`, cond: text(t.cond), action: text(t.action) })),
+    tripwires: arr(risk.tripwires).filter(isObj).map((t, i) => ({ id: `TW${i + 1}`, cond: text(t.cond), action: text(t.action), rule: monitorRule(t.monitor) })),
     killCriteria: arr(risk.killCriteria).filter(isObj).map((k) => ({ day: text(k.day), cond: text(k.cond), action: text(k.action) })),
     todo: arr(execution.hundredDays).filter(isObj).map((t) => ({ label: text(t.label), startWeek: num(t.start) || 1, weeks: num(t.len) || 1 })),
     decideToday: arr(brief.decideToday).map((d) => text(isObj(d) ? d.text : d)).filter(Boolean),
@@ -433,7 +445,9 @@ export function fromStrategyAgents(input: Obj): ConnectorResult {
   const notes = [
     `戦略「${plan.project || '（名称なし）'}」を取り込みます：ペルソナ ${plan.personas.length}、チャネル ${plan.channels.length}、トリップワイヤー ${plan.tripwires.length}、100日プラン ${plan.todo.length} 項目。`,
   ];
-  if (plan.tripwires.length) notes.push('トリップワイヤーは文章のため、「経営戦略」画面で指標と閾値を設定すると実績データで自動監視されます。');
+  const monitored = plan.tripwires.filter((t) => t.rule).length;
+  if (monitored) notes.push(`トリップワイヤー ${plan.tripwires.length} 件のうち ${monitored} 件は指標と閾値付きのため、取り込み後すぐに実績データで自動監視されます。`);
+  if (plan.tripwires.length > monitored) notes.push(`残り ${plan.tripwires.length - monitored} 件は文章のみのため、「経営戦略」画面で指標と閾値を設定すると自動監視されます。`);
   return { kind: 'plan', tool: 'strategy-agents', plan, label: plan.project || 'strategy-agents', notes };
 }
 
