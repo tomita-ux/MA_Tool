@@ -131,6 +131,10 @@ export interface Workspace {
   keywords?: KeywordSeed[];
   aiTopics?: string[];
   template: 'btob' | 'ec' | 'local';
+  /** strategy layer imported from strategy-agents */
+  plan?: StrategyPlan;
+  /** latest AI search visibility diagnosis from seo-geo-aio-llmo */
+  aiDiagnosis?: AiDiagnosis;
 }
 
 export interface InjectedAnomaly {
@@ -161,9 +165,61 @@ export interface Initiative {
   impact?: string;
   owner?: string;
   due?: string;
-  source: 'insight' | 'audience' | 'budget' | 'manual';
+  source: 'insight' | 'audience' | 'budget' | 'strategy' | 'manual';
   sourceRef?: string;
   createdAt: string;
 }
 
 export type RangeDays = 7 | 28 | 90;
+
+// ─── Strategy layer (strategy-agents) ────────────────────────────────────────
+
+export type TripMetric = 'conversions' | 'cpa' | 'cvr' | 'sessions' | 'cost' | 'roas';
+
+/** Machine-checkable form of a tripwire, evaluated live against the dataset. */
+export interface TripRule {
+  metric: TripMetric;
+  /** undefined = all channels */
+  moduleId?: string;
+  op: '<' | '>';
+  /** monthly value for counts/cost, ratio for cvr/roas, yen for cpa */
+  value: number;
+}
+
+export interface StrategyPlan {
+  source: 'strategy-agents' | 'sample';
+  project: string;
+  client: string;
+  version?: string;
+  date?: string;
+  kernel: { oneLiner?: string; diagnosis: string; policy: string; actions: string };
+  kgi: { label: string; note?: string; scenarios: { label: string; weight?: number; value: string }[] };
+  kpis: { label: string; value: string; note?: string }[];
+  probability?: { low: number; high: number; median: number; label?: string };
+  wtp?: string;
+  htw?: string;
+  notDo: { text: string; why?: string }[];
+  personas: { id: string; name: string; role?: string; pains: string[]; goals: string[]; quote?: string; touchpoints: string[] }[];
+  /** planned channel mix */
+  channels: { name: string; sharePct?: number; amount?: string; note?: string }[];
+  tripwires: { id: string; cond: string; action: string; rule?: TripRule }[];
+  killCriteria: { day: string; cond: string; action: string }[];
+  todo: { label: string; startWeek: number; weeks: number }[];
+  decideToday: string[];
+  importedAt?: string;
+}
+
+// ─── AI search visibility diagnosis (seo-geo-aio-llmo) ───────────────────────
+
+export interface AiDiagnosis {
+  source: 'seo-geo-aio-llmo' | 'sample';
+  diagnosedAt: string;
+  round?: number;
+  tvs: { overall: number; grade?: string; layerA: number; layerB: number; formula?: string; previous?: { overall: number; layerA?: number; layerB?: number; diagnosedAt?: string } };
+  axes: { id: string; label: string; score: number; max: number; layer: 'A' | 'B'; prev?: number }[];
+  engines: { name: string; mentionRate: number; prev?: number; direct?: number; indirect?: number; withLink?: number; accuracy?: number }[];
+  referrals: { name: string; sessions: number; prevSessions?: number; cv: number; engagementRate?: number }[];
+  roadmap: { id: string; title: string; impact: number; effort: number; category?: string }[];
+  /** exploratory / directional / decision-grade */
+  measurementTier?: string;
+}

@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Blocks, Building2, Check, ChevronDown, LayoutDashboard, Lightbulb, Menu, Monitor, Moon, Route, Settings, SquareKanban, Sun, Target, Users, X,
+  Blocks, Building2, Check, ChevronDown, Flag, LayoutDashboard, Plug, Lightbulb, Menu, Monitor, Moon, Route, Settings, SquareKanban, Sun, Target, Users, X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -88,6 +88,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   const colors = moduleColors(ws);
   const openCount = initiatives.filter((i) => i.status !== 'done').length;
   const highCount = an.insights.filter((i) => i.priority === 'high').length;
+  const firedCount = an.insights.filter((i) => i.kind === 'tripwire').length;
   const railBadge = (n: number, tone: 'accent' | 'critical' = 'accent') =>
     n > 0 ? (
       <span className={cx('tnum rounded-full px-1.5 text-[11px] leading-5', tone === 'critical' ? 'bg-critical text-white' : 'bg-rail-2 text-rail-ink')}>{n}</span>
@@ -110,11 +111,14 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </div>
 
-      <RailLabel>戦略</RailLabel>
+      <RailLabel>経営戦略</RailLabel>
+      <NavItem to="/plan" icon={<Flag size={16} />} badge={railBadge(firedCount, 'critical')}>経営戦略</NavItem>
+      <NavItem to="/strategy" icon={<Target size={16} />}>戦略プランナー</NavItem>
+
+      <RailLabel>統合分析</RailLabel>
       <NavItem to="/" end icon={<LayoutDashboard size={16} />}>コマンドセンター</NavItem>
       <NavItem to="/journey" icon={<Route size={16} />}>カスタマージャーニー</NavItem>
       <NavItem to="/audience" icon={<Users size={16} />}>オーディエンス分析</NavItem>
-      <NavItem to="/strategy" icon={<Target size={16} />}>戦略プランナー</NavItem>
 
       <RailLabel>実行</RailLabel>
       <NavItem to="/execution" icon={<SquareKanban size={16} />} badge={railBadge(openCount)}>施策ボード</NavItem>
@@ -140,6 +144,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       </AnimatePresence>
 
       <RailLabel>管理</RailLabel>
+      <NavItem to="/connect" icon={<Plug size={16} />}>連携ハブ</NavItem>
       <NavItem to="/catalog" icon={<Blocks size={16} />}>モジュールカタログ</NavItem>
       <NavItem to="/settings" icon={<Settings size={16} />}>設定</NavItem>
 

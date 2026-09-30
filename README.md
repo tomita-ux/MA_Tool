@@ -12,11 +12,14 @@ Google広告・Yahoo!広告・Meta広告・Search Console・GA4・SNS・AI検索
 | [要件定義書](docs/02-requirements.md) | 課題、ゴール、利用者、スコープ、機能要件（ID 付き）、非機能要件、受け入れ基準 |
 | [機能仕様書](docs/03-functional-spec.md) | 画面ごとの構成・操作・計算ロジック |
 | [モジュール追加ガイド](docs/04-module-guide.md) | 標準モジュール / カスタムモジュール / 既存ダッシュボード接続の手順 |
+| [統合設計書](docs/05-integration-design.md) | strategy-agents と既存 5 ツールの調査結果、統合方針、連携仕様、ロードマップ、リスク |
 
 ## 画面
 
 | 画面 | できること |
 |---|---|
+| 経営戦略 | strategy-agents の戦略カーネル・KGI・シナリオ、トリップワイヤーの実績監視、チャネル配分の計画 vs 実績、100日プランの起票 |
+| 連携ハブ | 6 ツールの出力（JSON）を形式自動判別で取り込み |
 | コマンドセンター | KGI 達成率、全チャネル KPI、日別推移、チャネル別成果、ファネル、異常検知アラート、注目インサイト |
 | カスタマージャーニー | 段階×チャネルのフロー図（顧客の動きをアニメーション表示）、段階別離脱、CV 経路、アトリビューション 5 モデル比較 |
 | オーディエンス分析 | セグメント × チャネル / 訴求軸の CVR 指数ヒートマップ、推奨アクション、勝ちパターン |
@@ -40,6 +43,9 @@ npm test           # 分析エンジンの単体テスト（Vitest）
 npm run typecheck  # 型チェック
 npm run build      # 本番ビルド（dist/）
 npm run build:demo # 共有用の単一 HTML デモ（artifact/ma-compass.html）
+
+# strategy-agents のプロジェクトを取り込み用 JSON に書き出す
+node scripts/export-strategy.mjs <strategy-agents>/projects/<id> strategy-plan.json
 ```
 
 ## ディレクトリ構成
@@ -50,7 +56,8 @@ src/
     types.ts            共通データモデル（UMDM）
     constants.ts        ジャーニー段階・訴求軸・指標定義
     data/               サンプル生成・データセット・ブリッジ取り込み・サンプル企業
-    analytics/          集計・ジャーニー・アトリビューション・セグメント行列・異常検知・予算最適化・インサイト
+    analytics/          集計・ジャーニー・アトリビューション・セグメント行列・異常検知・予算最適化・インサイト・戦略連携
+    connectors/         既存 6 ツールの出力を取り込むコネクタ
   modules/              モジュール定義（1 モジュール = 1 マニフェスト）とレジストリ
   store/                状態管理（Zustand、ブラウザ保存）
   components/           UI 部品・チャート・ウィジェット

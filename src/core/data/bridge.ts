@@ -1,9 +1,11 @@
-import type { MetricKey, MetricRecord, ModuleManifest, Segment } from '../types';
+import type { MetricKey, MetricRecord, ModuleManifest, Segment, StageId } from '../types';
 import { sampleProfileOf } from './generate';
 
 // Bridge import (stage 2 of the legacy-dashboard integration). See docs/01-architecture.md §4.1.
 
 export const BRIDGE_ROW_LIMIT = 5000;
+
+const STAGE_IDS: StageId[] = ['awareness', 'interest', 'consideration', 'conversion', 'loyalty'];
 
 const METRIC_KEYS: MetricKey[] = ['impressions', 'clicks', 'cost', 'sessions', 'engagements', 'conversions', 'revenue'];
 
@@ -11,6 +13,8 @@ export interface BridgeRow {
   date: string;
   campaign: string;
   segment?: string;
+  /** optional explicit journey stage (otherwise inferred from the campaign) */
+  stage?: StageId;
   metrics: Partial<Record<MetricKey, number>>;
 }
 
@@ -119,9 +123,9 @@ export function normalizeBridgeRows(rows: unknown[], module: ModuleManifest, seg
       values[k] = v;
     }
     const name = r.campaign.trim();
-    validRows.push({ date: r.date, campaign: name, segment: typeof r.segment === 'string' ? r.segment : '', metrics: values });
+    validRows.push({ date: r.date, campaign: name, segment: typeof r.segment === 'string' ? r.segment : '', ...(r.stage && STAGE_IDS.includes(r.stage) ? { stage: r.stage } : {}), metrics: values });
     const known = profile.campaigns.find((c) => c.id === name || c.name === name);
-    const stage = known?.stage ?? module.stages[0];
+    const stage = (r.stage && STAGE_IDS.includes(r.stage) ? r.stage : undefined) ?? known?.stage ?? module.stages[0];
     const campaignId = known?.id ?? name;
     const seg = segments.find((s) => s.id === r.segment || s.name === r.segment);
     const targets = seg ? [{ id: seg.id, share: 1 }] : segments.map((s) => ({ id: s.id, share: s.share }));

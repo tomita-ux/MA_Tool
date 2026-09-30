@@ -8,7 +8,7 @@ import { useApp, useInitiatives, useWorkspace } from '@/store/app';
 import { useDataset, useNames } from '@/store/hooks';
 import { useToast } from '@/store/toast';
 
-const SOURCE: Record<Initiative['source'], string> = { insight: 'インサイト', audience: 'オーディエンス', budget: '予算', manual: '手動' };
+const SOURCE: Record<Initiative['source'], string> = { strategy: '経営戦略', insight: 'インサイト', audience: 'オーディエンス', budget: '予算', manual: '手動' };
 
 export function Execution() {
   const items = useInitiatives();

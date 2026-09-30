@@ -6,6 +6,7 @@ import type { StageId } from '../types';
 import type { Anomaly } from './anomaly';
 import { attribute } from './attribution';
 import { stageDropoff, type JourneyResult } from './journey';
+import { evaluateTripwires, TRIP_METRICS } from './strategy';
 import type { Matrix } from './matrix';
 import { aiCitations, keywordTable } from './moduleDetail';
 import { currentAllocation, optimize, project, type Curve } from './simulator';
@@ -13,7 +14,7 @@ import { currentAllocation, optimize, project, type Curve } from './simulator';
 // Rule-based insight engine — docs/03-functional-spec.md §9.3.
 // Phase 2 adds an LLM step that turns these into narrative strategy and answers questions.
 
-export type InsightKind = 'budget' | 'anomaly' | 'winner' | 'waste' | 'seo' | 'ai' | 'attribution' | 'dropoff' | 'missing';
+export type InsightKind = 'tripwire' | 'budget' | 'anomaly' | 'winner' | 'waste' | 'seo' | 'ai' | 'attribution' | 'dropoff' | 'missing';
 export type Priority = 'high' | 'medium' | 'low';
 
 export interface Insight {
@@ -33,6 +34,7 @@ export interface Insight {
 }
 
 export const KIND_LABEL: Record<InsightKind, string> = {
+  tripwire: '戦略トリップワイヤー',
   budget: '予算配分',
   anomaly: '異常検知',
   winner: '勝ちパターン',
@@ -73,6 +75,30 @@ export function buildInsights({ ds, journey, anomalies, matrix, curves }: Ctx): 
   };
   const segName = (id: string) => ws.segments.find((s) => s.id === id)?.name ?? id;
   const out: Insight[] = [];
+
+  // 0. Strategy tripwires (strategy-agents) evaluated against live data
+  if (ws.plan) {
+    for (const t of evaluateTripwires(ds, ws.plan).filter((x) => x.state === 'fired')) {
+      const def = TRIP_METRICS.find((m) => m.id === t.rule!.metric)!;
+      const fmt = (v: number) => (def.unit === '円' ? yen(v) : def.unit === '%' ? `${(v * 100).toFixed(1)}%` : compact(v));
+      out.push({
+        id: `tripwire:${t.id}`,
+        kind: 'tripwire',
+        priority: 'high',
+        title: `戦略トリップワイヤー ${t.id} が発火：${t.cond}`,
+        detail: `戦略で決めた対応：${t.action}`,
+        evidence: [
+          { label: `${t.rule!.moduleId ? name(t.rule!.moduleId) + 'の' : ''}${def.name}`, value: fmt(t.value!) },
+          { label: '閾値', value: `${t.rule!.op === '<' ? '<' : '>'} ${fmt(t.rule!.value)}` },
+        ],
+        impact: '戦略の前提が崩れている可能性。事前に決めた対応を実行する',
+        actionTitle: `${t.id} 対応：${t.action.slice(0, 40)}`,
+        moduleIds: t.rule!.moduleId ? [t.rule!.moduleId] : [],
+        kpi: def.name,
+        link: '/plan',
+      });
+    }
+  }
 
   // 1. Budget reallocation at the same total
   if (curves.length >= 2) {

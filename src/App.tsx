@@ -9,6 +9,8 @@ import { Insights } from './pages/Insights';
 import { Journey } from './pages/Journey';
 import { ModulePage } from './pages/ModulePage';
 import { NotFound } from './pages/NotFound';
+import { Plan } from './pages/Plan';
+import { Connect } from './pages/Connect';
 import { Settings } from './pages/Settings';
 import { Strategy } from './pages/Strategy';
 import { useApp } from './store/app';
@@ -19,6 +21,8 @@ const routes: RouteObject[] = [
     element: <AppShell />,
     children: [
       { index: true, element: <CommandCenter /> },
+      { path: 'plan', element: <Plan /> },
+      { path: 'connect', element: <Connect /> },
       { path: 'journey', element: <Journey /> },
       { path: 'audience', element: <Audience /> },
       { path: 'strategy', element: <Strategy /> },

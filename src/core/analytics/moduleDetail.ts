@@ -74,6 +74,8 @@ export interface EngineRow {
   mentions: number;
   clicks: number;
   conversions: number;
+  /** true when the rate comes from a seo-geo-aio-llmo diagnosis */
+  measured: boolean;
 }
 
 export interface TopicRow {
@@ -87,8 +89,9 @@ export function aiCitations(ws: Workspace, module: ModuleManifest, records: Metr
   const byCampaign = groupBy(recs, (r) => r.campaignId);
   const engines: EngineRow[] = (module.sample?.campaigns ?? []).map((c) => {
     const m = byCampaign.get(c.id);
-    const rate = (ENGINE_CITATION[c.id] ?? 0.25) * (0.85 + 0.3 * rngFor('cite', ws.id, c.id)());
-    return { id: c.id, name: c.name, citationRate: rate, mentions: (m?.impressions ?? 0) * 0.05, clicks: m?.clicks ?? 0, conversions: m?.conversions ?? 0 };
+    const diag = ws.aiDiagnosis?.engines.find((e) => e.name.toLowerCase().replace(/\s/g, '') === c.name.toLowerCase().replace(/\s/g, ''));
+    const rate = diag ? diag.mentionRate : (ENGINE_CITATION[c.id] ?? 0.25) * (0.85 + 0.3 * rngFor('cite', ws.id, c.id)());
+    return { id: c.id, name: c.name, citationRate: rate, mentions: (m?.impressions ?? 0) * 0.05, clicks: m?.clicks ?? 0, conversions: m?.conversions ?? 0, measured: !!diag };
   });
   const topics: TopicRow[] = (ws.aiTopics ?? []).map((topic) => {
     const rng = rngFor('topic', ws.id, topic);

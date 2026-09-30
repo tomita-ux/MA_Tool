@@ -1,4 +1,5 @@
 import type { ModuleConnection, Workspace } from '../types';
+import { SAMPLE_DIAGNOSES, SAMPLE_PLANS } from './samplePlans';
 
 // Sample workspaces. Company names and figures are fictional.
 
@@ -12,6 +13,8 @@ const sakuraModules = ['ga4', 'google-ads', 'gbp', 'sns', 'seo'];
 export const SAMPLE_WORKSPACES: Workspace[] = [
   {
     id: 'nexa',
+    plan: SAMPLE_PLANS.nexa,
+    aiDiagnosis: SAMPLE_DIAGNOSES.nexa,
     name: 'ネクサラーニング株式会社',
     industry: '法人研修サービス',
     model: 'btob',
@@ -64,6 +67,8 @@ export const SAMPLE_WORKSPACES: Workspace[] = [
   },
   {
     id: 'lumiere',
+    plan: SAMPLE_PLANS.lumiere,
+    aiDiagnosis: SAMPLE_DIAGNOSES.lumiere,
     name: 'ルミエールスタイル',
     industry: 'アパレル EC',
     model: 'btoc',
@@ -114,6 +119,7 @@ export const SAMPLE_WORKSPACES: Workspace[] = [
   },
   {
     id: 'sakura',
+    plan: SAMPLE_PLANS.sakura,
     name: 'さくら通り歯科クリニック',
     industry: '歯科医院（地域ビジネス）',
     model: 'local',
@@ -169,5 +175,5 @@ export const TEMPLATE_NAMES: Record<Workspace['template'], string> = {
 
 export function workspaceFromTemplate(template: Workspace['template'], name: string, id: string): Workspace {
   const base = SAMPLE_WORKSPACES.find((w) => w.template === template)!;
-  return structuredClone({ ...base, id, name, legacyUrls: {}, customModules: [], anomalies: [] });
+  return structuredClone({ ...base, id, name, legacyUrls: {}, customModules: [], anomalies: [], plan: undefined, aiDiagnosis: undefined });
 }

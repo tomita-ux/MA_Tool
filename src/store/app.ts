@@ -158,7 +158,7 @@ export const useApp = create<AppState>()(
       };
     },
     {
-      name: 'ma-compass:v1',
+      name: 'ma-compass:v2',
       storage: createJSONStorage(() => safeStorage),
       partialize: (s) => ({
         workspaces: s.workspaces,
