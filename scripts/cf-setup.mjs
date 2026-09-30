@@ -17,6 +17,8 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const env = process.env;
+// test hook: point the script at a mock API
+const API = env.CF_API_BASE || 'https://api.cloudflare.com/client/v4';
 const TOKEN = env.CLOUDFLARE_API_TOKEN;
 const ACCOUNT = env.CLOUDFLARE_ACCOUNT_ID;
 const PROJECT = env.PROJECT || 'ma-compass';
@@ -28,7 +30,7 @@ if (!TOKEN || !ACCOUNT || !ADMINS.length) {
 }
 
 async function cf(method, path, body) {
-  const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}${path}`, {
+  const res = await fetch(`${API}/accounts/${ACCOUNT}${path}`, {
     method,
     headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
@@ -44,8 +46,9 @@ step('D1 データベース');
 const dbs = await cf('GET', '/d1/database?name=ma-compass');
 const db = dbs.find((d) => d.name === 'ma-compass') ?? (await cf('POST', '/d1/database', { name: 'ma-compass' }));
 console.log(`  database_id: ${db.uuid}`);
-const toml = readFileSync('wrangler.toml', 'utf8').replace(/database_id = ".*"/, `database_id = "${db.uuid}"`);
-writeFileSync('wrangler.toml', toml);
+const tomlPath = env.WRANGLER_TOML || 'wrangler.toml';
+const toml = readFileSync(tomlPath, 'utf8').replace(/database_id = ".*"/, `database_id = "${db.uuid}"`);
+writeFileSync(tomlPath, toml);
 
 // 2. Pages project
 step('Pages プロジェクト');
