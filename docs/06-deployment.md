@@ -160,7 +160,7 @@ flowchart TB
 ```bash
 npx wrangler login
 npx wrangler d1 create ma-compass          # 表示された database_id を wrangler.toml に記入
-npm run cf:deploy                          # ビルド → D1 マイグレーション → Pages へ公開
+npm run cf:deploy                          # ビルド → D1 マイグレーション → Pages の本番（main）へ公開
 ```
 
 ### 8.4 Access でアプリを保護
@@ -180,6 +180,15 @@ npx wrangler pages secret put ADMIN_EMAILS --project-name ma-compass         # �
 
 **8.3〜8.5 は `node scripts/cf-setup.mjs` で一括実行できます**（API トークンと Google のクライアント ID/シークレットを環境変数で渡す。スクリプト冒頭に必要な権限を記載）。
 設定後にもう一度 `npm run cf:deploy`。初回ログイン時にサンプルの支援先 3 社が作られます（不要なら設定から削除）。
+
+### 8.5.1 公開済みの環境（2026-10-02）
+| 項目 | 値 |
+|---|---|
+| URL | https://ma-compass.pages.dev（Google ログイン必須） |
+| D1 | `ma-compass`（ID は wrangler.toml に記入済み） |
+| Google ログイン | Google Cloud プロジェクト `GA-icloud` の OAuth クライアント（同意画面は外部・本番環境） |
+
+Pages の本番ブランチは `main`。`npm run cf:deploy` は `--branch main` 付きで本番に公開する（付けないとプレビュー URL への公開になる）。
 
 ### 8.6 支援先の担当者（閲覧者）を追加する
 1. MA Compass → 設定 → ユーザーと権限 → メールアドレス・「閲覧者」・支援先を選んで追加
