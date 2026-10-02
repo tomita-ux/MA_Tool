@@ -10,5 +10,5 @@ compatibility_date = "2026-09-30"
 [[d1_databases]]
 binding = "DB"
 database_name = "ma-compass"
-database_id = "<wrangler d1 create ma-compass で表示される ID>"
+database_id = "09da262e-94da-413f-b0c1-76c8efe8dbb1"
 migrations_dir = "migrations"
