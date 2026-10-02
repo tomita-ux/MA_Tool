@@ -1,4 +1,5 @@
 import { rngFor } from '../data/rng';
+import { isDemo } from '../data/workspaces';
 import type { MetricRecord, ModuleManifest, Workspace } from '../types';
 import { groupBy, sum } from './aggregate';
 
@@ -30,7 +31,8 @@ export interface KeywordRow {
 export function keywordTable(ws: Workspace, days: number): KeywordRow[] {
   return (ws.keywords ?? []).map((k) => {
     const rng = rngFor('kw', ws.id, k.keyword);
-    const prevPosition = Math.max(1, k.position + (rng() - 0.45) * 3);
+    // demo companies get a simulated previous rank; real clients only have the imported one
+    const prevPosition = isDemo(ws) ? Math.max(1, k.position + (rng() - 0.45) * 3) : k.position;
     const impressions = k.volume * (days / 30) * (k.position <= 10 ? 0.9 : k.position <= 20 ? 0.45 : 0.15);
     const ctr = ctrAt(k.position);
     const clicks = impressions * ctr;
@@ -93,11 +95,14 @@ const normEngine = (s: string) => s.toLowerCase().replace(/[\s!-]/g, '');
 export function aiCitations(ws: Workspace, module: ModuleManifest, records: MetricRecord[]) {
   const recs = records.filter((r) => r.moduleId === module.id);
   const byCampaign = groupBy(recs, (r) => r.campaignId);
-  const engines: EngineRow[] = (module.sample?.campaigns ?? []).map((c) => {
+  const demo = isDemo(ws);
+  const engines: EngineRow[] = (module.sample?.campaigns ?? []).flatMap((c) => {
     const m = byCampaign.get(c.id);
     const diag = ws.aiDiagnosis?.engines.find((e) => e.name.toLowerCase().replace(/\s/g, '') === c.name.toLowerCase().replace(/\s/g, ''));
+    // real clients: only engines measured by a seo-geo-aio-llmo diagnosis
+    if (!diag && !demo) return [];
     const rate = diag ? diag.mentionRate : (ENGINE_CITATION[c.id] ?? 0.25) * (0.85 + 0.3 * rngFor('cite', ws.id, c.id)());
-    return { id: c.id, name: c.name, citationRate: rate, mentions: (m?.impressions ?? 0) * 0.05, clicks: m?.clicks ?? 0, conversions: m?.conversions ?? 0, measured: !!diag };
+    return [{ id: c.id, name: c.name, citationRate: rate, mentions: (m?.impressions ?? 0) * 0.05, clicks: m?.clicks ?? 0, conversions: m?.conversions ?? 0, measured: !!diag }];
   });
   const measured = ws.aiDiagnosis?.queries;
   if (measured?.length) return { engines, topics: measuredTopics(engines, measured), topicsMeasured: true };
@@ -148,7 +153,7 @@ export function snsPlatforms(ws: Workspace, module: ModuleManifest, records: Met
     .map((c) => {
       const m = g.get(c.id) ?? sum([]);
       const scale = ws.scale * (ws.campaignScale?.[`${module.id}:${c.id}`] ?? 1);
-      const followers = (FOLLOWERS[c.id] ?? 5000) * scale;
+      const followers = isDemo(ws) ? (FOLLOWERS[c.id] ?? 5000) * scale : NaN;
       return {
         id: c.id,
         name: c.name,

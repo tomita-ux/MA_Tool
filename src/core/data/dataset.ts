@@ -3,6 +3,7 @@ import type { MetricRecord, ModuleManifest, RangeDays, Workspace } from '../type
 import { normalizeBridgeRows, type BridgeRow } from './bridge';
 import { dateOffset, generateModuleRecords } from './generate';
 import { hashString } from './rng';
+import { isDemo } from './workspaces';
 
 export interface ModuleImport {
   rows: BridgeRow[];
@@ -34,13 +35,14 @@ const recordCache = new Map<string, MetricRecord[]>();
 function moduleRecords(ws: Workspace, m: ModuleManifest, today: Date, imp?: ModuleImport): MetricRecord[] {
   const key = hashString(
     JSON.stringify([
-      ws.id, m.id, today.toDateString(), ws.segments, ws.affinity[m.id], ws.scale, ws.cpcMult, ws.aov,
+      ws.id, ws.demo, m.id, today.toDateString(), ws.segments, ws.affinity[m.id], ws.scale, ws.cpcMult, ws.aov,
       ws.campaignScale, ws.anomalies, ws.model, m.sample ?? [m.category, m.stages, m.paid], imp?.importedAt,
     ]),
   ).toString(36);
   let recs = recordCache.get(key);
   if (!recs) {
-    recs = imp ? normalizeBridgeRows(imp.rows, m, ws.segments).records : generateModuleRecords(ws, m, today);
+    // real clients never show generated numbers: no import → no data
+    recs = imp ? normalizeBridgeRows(imp.rows, m, ws.segments).records : isDemo(ws) ? generateModuleRecords(ws, m, today) : [];
     if (recordCache.size > 200) recordCache.clear();
     recordCache.set(key, recs);
   }

@@ -10,7 +10,7 @@ const nexaModules = ['ga4', 'google-ads', 'seo', 'ai-search', 'sns', 'email-ma']
 const lumiereModules = ['ga4', 'google-ads', 'yahoo-ads', 'meta-ads', 'sns', 'seo', 'ai-search'];
 const sakuraModules = ['ga4', 'google-ads', 'gbp', 'sns', 'seo'];
 
-export const SAMPLE_WORKSPACES: Workspace[] = [
+const SAMPLE_DEFS: Workspace[] = [
   {
     id: 'nexa',
     toolLinks: {
@@ -185,7 +185,24 @@ export const TEMPLATE_NAMES: Record<Workspace['template'], string> = {
   local: '地域ビジネス（店舗・医院）',
 };
 
+export const SAMPLE_WORKSPACES: Workspace[] = SAMPLE_DEFS.map((w) => ({ ...w, demo: true }));
+
 export function workspaceFromTemplate(template: Workspace['template'], name: string, id: string): Workspace {
   const base = SAMPLE_WORKSPACES.find((w) => w.template === template)!;
-  return structuredClone({ ...base, id, name, legacyUrls: {}, customModules: [], anomalies: [], plan: undefined, aiDiagnosis: undefined, toolLinks: {} });
+  // a real client: keeps the template's structure (modules, segments, KGI) but none of its sample facts
+  return structuredClone({
+    ...base, id, name, demo: false, legacyUrls: {}, customModules: [], anomalies: [], keywords: [], aiTopics: [], campaignScale: undefined,
+    plan: undefined, aiDiagnosis: undefined, toolLinks: {},
+  });
+}
+
+const DEMO_IDS = new Set(SAMPLE_WORKSPACES.map((w) => w.id));
+
+/** Demo companies show generated sample data; workspaces saved before the flag existed are recognised by id. */
+export const isDemo = (ws: Pick<Workspace, 'id' | 'demo'>) => ws.demo ?? DEMO_IDS.has(ws.id);
+
+/** Clients shown in lists: real ones, plus the demo companies when requested (or when there are no real ones yet). */
+export function visibleWorkspaces<T extends Pick<Workspace, 'id' | 'demo'>>(all: T[], showDemo: boolean): T[] {
+  const real = all.filter((w) => !isDemo(w));
+  return showDemo || !real.length ? all : real;
 }

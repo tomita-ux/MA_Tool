@@ -11,6 +11,7 @@ import { useApp, useInitiatives, useWorkspace, type Theme } from '@/store/app';
 import { useAnalysis } from '@/store/hooks';
 import { useToast } from '@/store/toast';
 import { useCanEdit, useSession } from '@/remote/session';
+import { isDemo, visibleWorkspaces } from '@/core/data/workspaces';
 
 
 const IS_DEMO = import.meta.env.VITE_DEMO === 'true';
@@ -45,6 +46,7 @@ export function AppShell() {
         <main ref={mainRef} className="scroll-thin min-h-0 flex-1 overflow-y-auto">
           {/* CSS entry animation: the resting state is fully visible, so a page can never stay hidden */}
           <div key={location.pathname} className="page-in mx-auto w-full max-w-[1440px] px-4 pt-5 pb-[calc(env(safe-area-inset-bottom,0px)+40px)] sm:px-6 lg:px-8">
+            <NoDataBanner />
             <Outlet />
           </div>
         </main>
@@ -230,7 +232,11 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
 }
 
 function WorkspaceSwitcher() {
-  const workspaces = useApp((s) => s.workspaces);
+  const all = useApp((s) => s.workspaces);
+  const showDemo = useApp((s) => s.showDemo);
+  const workspaces = visibleWorkspaces(all, showDemo);
+  const real = workspaces.filter((w) => !isDemo(w));
+  const demos = workspaces.filter((w) => isDemo(w));
   const activeId = useApp((s) => s.activeId);
   const setActive = useApp((s) => s.setActive);
   const ws = useWorkspace();
@@ -272,7 +278,10 @@ function WorkspaceSwitcher() {
           <Building2 size={15} />
         </span>
         <span className="min-w-0 leading-tight">
-          <span className="block truncate text-[13px] font-semibold text-ink">{ws.name}</span>
+          <span className="flex items-center gap-1.5 truncate text-[13px] font-semibold text-ink">
+            <span className="truncate">{ws.name}</span>
+            {isDemo(ws) && <Badge tone="outline">デモ</Badge>}
+          </span>
           <span className="block truncate text-[11px] text-muted">{ws.industry}</span>
         </span>
         <ChevronDown size={15} className="shrink-0 text-muted" />
@@ -288,7 +297,15 @@ function WorkspaceSwitcher() {
             transition={{ duration: 0.15 }}
             className="absolute top-full left-0 z-40 mt-1 w-[300px] max-w-[calc(100vw-32px)] rounded-xl border border-line bg-surface p-1.5 shadow-pop"
           >
-            {workspaces.map((w) => (
+            {[
+              { label: real.length && demos.length ? '支援先' : undefined, list: real },
+              { label: 'デモ（サンプルデータ）', list: demos },
+            ].map((g) =>
+              g.list.length ? (
+                <li key={g.label ?? 'real'}>
+                  {g.label && <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-medium text-muted">{g.label}</p>}
+                  <ul>
+                    {g.list.map((w) => (
               <li key={w.id}>
                 <button
                   type="button"
@@ -300,13 +317,17 @@ function WorkspaceSwitcher() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-medium text-ink">{w.name}</span>
                     <span className="block truncate text-[11px] text-muted">
-                      {w.industry} · {w.enabledModules.length} モジュール
+                      {isDemo(w) ? 'デモ · ' : ''}{w.industry} · {w.enabledModules.length} モジュール
                     </span>
                   </span>
                   {w.id === activeId && <Check size={15} className="text-accent" />}
                 </button>
               </li>
-            ))}
+                    ))}
+                  </ul>
+                </li>
+              ) : null,
+            )}
             {canEdit && <li className="mt-1 border-t border-line pt-1">
               <button
                 type="button"
@@ -336,6 +357,28 @@ function WorkspaceSwitcher() {
   );
 }
 
+
+/** Real clients show imported data only — say so until something has been imported. */
+function NoDataBanner() {
+  const ws = useWorkspace();
+  const imports = useApp((s) => s.imports[s.activeId]);
+  const canEdit = useCanEdit();
+  const { pathname } = useLocation();
+  if (isDemo(ws) || Object.keys(imports ?? {}).length || ['/connect', '/settings', '/clients', '/catalog'].includes(pathname)) return null;
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]">
+      <span className="font-medium">{ws.name} にはまだ実績データが取り込まれていません。</span>
+      <span className="text-ink-2">
+        {canEdit ? '連携ハブから各ツールのデータを取り込むと、この画面に表示されます。' : '管理者がデータを取り込むと、この画面に表示されます。'}
+      </span>
+      {canEdit && (
+        <NavLink to="/connect" className="ml-auto text-xs font-medium text-accent hover:underline">
+          連携ハブを開く →
+        </NavLink>
+      )}
+    </div>
+  );
+}
 
 function SyncBadge() {
   const mode = useSession((s) => s.mode);

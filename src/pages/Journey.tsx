@@ -6,7 +6,7 @@ import { Badge, Card, CardHeader, ModuleDot, PageHeader, cx } from '@/components
 import { ATTRIBUTION_MODELS, attribute, type AttributionModel } from '@/core/analytics/attribution';
 import { stageDropoff } from '@/core/analytics/journey';
 import { stageName } from '@/core/constants';
-import { compact } from '@/lib/format';
+import { compact, pct } from '@/lib/format';
 import { useAnalysis, useNames } from '@/store/hooks';
 
 export function Journey() {
@@ -87,7 +87,7 @@ export function Journey() {
                   </span>
                   <span className="tnum text-xs text-ink-2">
                     {compact(d.reached)}人 → {compact(d.next)}人
-                    <span className="ml-2 font-medium text-ink">{d.stage === 'conversion' ? 'CV率' : '継続'} {Math.round(d.rate * 100)}%</span>
+                    <span className="ml-2 font-medium text-ink">{d.stage === 'conversion' ? 'CV率' : '継続'} {pct(d.rate, 0)}</span>
                   </span>
                 </div>
                 <div className="flex h-2 overflow-hidden rounded-full bg-surface-3">

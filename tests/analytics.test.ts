@@ -193,3 +193,30 @@ describe('insights', () => {
     expect(analyze(buildDataset(w, 28, {}, today)).insights.some((i) => i.id === 'missing:yahoo-ads')).toBe(false);
   });
 });
+
+describe('demo companies vs real clients', () => {
+  it('real clients show imported data only; demo companies keep sample data', async () => {
+    const { workspaceFromTemplate, isDemo, visibleWorkspaces } = await import('@/core/data/workspaces');
+    const real = workspaceFromTemplate('btob', '実在社', 'ws_real');
+    expect(isDemo(real)).toBe(false);
+    expect(real.keywords).toEqual([]);
+    expect(buildDataset(real, 28).all).toHaveLength(0);
+    const demo = SAMPLE_WORKSPACES[0];
+    expect(isDemo(demo)).toBe(true);
+    expect(isDemo({ id: demo.id })).toBe(true); // saved before the flag existed
+    expect(buildDataset(demo, 28).all.length).toBeGreaterThan(0);
+    // empty data must not crash the analysis
+    expect(() => analyze(buildDataset(real, 28))).not.toThrow();
+    // lists
+    expect(visibleWorkspaces(SAMPLE_WORKSPACES, false)).toHaveLength(SAMPLE_WORKSPACES.length); // no real clients yet → keep demos
+    expect(visibleWorkspaces([...SAMPLE_WORKSPACES, real], false)).toEqual([real]);
+    expect(visibleWorkspaces([...SAMPLE_WORKSPACES, real], true)).toHaveLength(SAMPLE_WORKSPACES.length + 1);
+  });
+
+  it('imports still show for real clients', () => {
+    const real = { ...SAMPLE_WORKSPACES[0], id: 'ws_r2', demo: false };
+    const rows = [{ date: lastNDays(buildDataset(SAMPLE_WORKSPACES[0], 7), 1)[0]?.date ?? '2026-09-30', campaign: 'brand', segment: '', metrics: { impressions: 10, clicks: 1, cost: 100, conversions: 1 } }];
+    const ds = buildDataset(real, 28, { 'google-ads': { rows, importedAt: 'x', label: 'test' } });
+    expect(ds.all.every((r) => r.moduleId === 'google-ads')).toBe(true);
+  });
+});

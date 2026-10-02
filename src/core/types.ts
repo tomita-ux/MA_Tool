@@ -104,6 +104,8 @@ export interface ModuleConnection {
 export interface Workspace {
   id: string;
   name: string;
+  /** demo company: shows generated sample data. Real clients show imported data only. */
+  demo?: boolean;
   industry: string;
   model: 'btob' | 'btoc' | 'local';
   kgi: { metric: KgiMetric; label: string; monthlyTarget: number };

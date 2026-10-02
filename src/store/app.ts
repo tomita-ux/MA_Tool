@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import type { ModuleImport } from '@/core/data/dataset';
-import { SAMPLE_WORKSPACES, workspaceFromTemplate } from '@/core/data/workspaces';
+import { isDemo, SAMPLE_WORKSPACES, workspaceFromTemplate } from '@/core/data/workspaces';
 import type { Initiative, InitiativeStatus, ModuleConnection, ModuleManifest, RangeDays, Workspace } from '@/core/types';
 import { uid } from '@/lib/format';
 import { SAMPLE_INITIATIVES } from './seed';
@@ -18,6 +18,8 @@ interface AppState {
   imports: Record<string, Record<string, ModuleImport>>;
   /** module id most recently added — drives the sidebar highlight */
   lastAdded?: string;
+  /** show the demo companies alongside real clients (per browser) */
+  showDemo: boolean;
 
   setActive: (id: string) => void;
   setRange: (r: RangeDays) => void;
@@ -25,6 +27,9 @@ interface AppState {
   updateWorkspace: (patch: Partial<Workspace>) => void;
   addWorkspace: (template: Workspace['template'], name: string) => string;
   removeWorkspace: (id: string) => void;
+  setShowDemo: (v: boolean) => void;
+  /** re-create any demo company that was deleted */
+  restoreDemo: () => number;
   enableModule: (moduleId: string, connection: ModuleConnection) => void;
   disableModule: (moduleId: string) => void;
   addCustomModule: (m: ModuleManifest, connection: ModuleConnection) => void;
@@ -69,6 +74,15 @@ const safeStorage: StateStorage = {
   },
 };
 
+const DEMO_PREF = 'ma-compass:show-demo';
+const readShowDemo = () => {
+  try {
+    return localStorage.getItem(DEMO_PREF) !== '0';
+  } catch {
+    return true;
+  }
+};
+
 const initial = () => ({
   workspaces: structuredClone(SAMPLE_WORKSPACES),
   activeId: SAMPLE_WORKSPACES[0].id,
@@ -87,6 +101,7 @@ export const useApp = create<AppState>()(
       return {
         ...initial(),
         theme: 'system',
+        showDemo: readShowDemo(),
 
         setActive: (id) => set({ activeId: id, lastAdded: undefined }),
         setRange: (range) => set({ range }),
@@ -97,6 +112,28 @@ export const useApp = create<AppState>()(
           const id = uid('ws');
           set((s) => ({ workspaces: [...s.workspaces, workspaceFromTemplate(template, name, id)], activeId: id, initiatives: { ...s.initiatives, [id]: [] } }));
           return id;
+        },
+        setShowDemo: (showDemo) => {
+          try {
+            localStorage.setItem(DEMO_PREF, showDemo ? '1' : '0');
+          } catch {
+            /* per-browser preference only */
+          }
+          set((s) => {
+            // hiding demos while one is open: move to the first real client
+            const active = s.workspaces.find((w) => w.id === s.activeId);
+            const firstReal = s.workspaces.find((w) => !isDemo(w));
+            return { showDemo, activeId: !showDemo && active && isDemo(active) && firstReal ? firstReal.id : s.activeId };
+          });
+        },
+        restoreDemo: () => {
+          const missing = SAMPLE_WORKSPACES.filter((d) => !get().workspaces.some((w) => w.id === d.id));
+          set((s) => ({
+            workspaces: [...s.workspaces, ...structuredClone(missing)],
+            initiatives: { ...s.initiatives, ...Object.fromEntries(missing.map((d) => [d.id, structuredClone(SAMPLE_INITIATIVES[d.id] ?? [])])) },
+            showDemo: true,
+          }));
+          return missing.length;
         },
         removeWorkspace: (id) =>
           set((s) => {

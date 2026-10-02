@@ -4,6 +4,7 @@ import type { DerivedKey, MetricKey } from '@/core/types';
 const int = new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 0 });
 
 export function compact(n: number): string {
+  if (!Number.isFinite(n)) return '—';
   const a = Math.abs(n);
   if (a >= 1e8) return `${trim(n / 1e8)}億`;
   if (a >= 1e4) return `${trim(n / 1e4)}万`;

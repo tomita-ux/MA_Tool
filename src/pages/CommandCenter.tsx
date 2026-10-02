@@ -9,7 +9,7 @@ import { bucket, dailySeries, dailyTotals, derived, groupBy, sum } from '@/core/
 import { stageDropoff } from '@/core/analytics/journey';
 import { METRIC_DEFS, stageName } from '@/core/constants';
 import type { DerivedKey, MetricKey, Metrics } from '@/core/types';
-import { compact, count, delta, formatMetric, signedPct, yen } from '@/lib/format';
+import { compact, count, delta, formatMetric, pct, signedPct, yen } from '@/lib/format';
 import { useAnalysis, useNames } from '@/store/hooks';
 
 type TrendMetric = 'conversions' | 'cost' | 'sessions';
@@ -208,7 +208,7 @@ export function CommandCenter() {
                     />
                   </div>
                   <span className="tnum text-right text-xs text-ink-2">
-                    <span className="font-medium text-ink">{compact(f.reached)}人</span> · {i < funnel.length - 1 ? '次へ' : 'CV'} {Math.round(f.rate * 100)}%
+                    <span className="font-medium text-ink">{compact(f.reached)}人</span> · {i < funnel.length - 1 ? '次へ' : 'CV'} {pct(f.rate, 0)}
                   </span>
                 </li>
               ))}

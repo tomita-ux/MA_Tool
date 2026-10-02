@@ -1,5 +1,6 @@
 import { APPEALS } from '../constants';
 import { rngFor } from '../data/rng';
+import { isDemo } from '../data/workspaces';
 import type { Appeal, MetricRecord, ModuleManifest, Workspace } from '../types';
 import { groupBy, sum } from './aggregate';
 
@@ -72,7 +73,8 @@ export function channelMatrix(ws: Workspace, modules: ModuleManifest[], records:
  */
 export function appealMatrix(ws: Workspace, modules: ModuleManifest[], records: MetricRecord[], baseline: MatrixBaseline = 'overall'): Matrix {
   const creative = new Set(modules.filter((m) => m.category === 'ads' || m.category === 'social').map((m) => m.id));
-  const recs = records.filter((r) => creative.has(r.moduleId) && r.stage !== 'loyalty');
+  // the appeal split is simulated until creative labels come from the ad platforms: demo companies only
+  const recs = isDemo(ws) ? records.filter((r) => creative.has(r.moduleId) && r.stage !== 'loyalty') : [];
   const bySeg = groupBy(recs, (r) => r.segmentId);
   const raw: Omit<MatrixCell, 'index'>[] = [];
   for (const s of ws.segments) {

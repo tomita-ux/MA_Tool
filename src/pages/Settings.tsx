@@ -1,14 +1,15 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Button, Card, CardHeader, ConfirmButton, Field, PageHeader, cx, inputClass } from '@/components/ui';
-import { TEMPLATE_NAMES } from '@/core/data/workspaces';
+import { Badge, Button, Card, CardHeader, ConfirmButton, Field, PageHeader, cx, inputClass } from '@/components/ui';
+import { DemoToggle } from '@/components/DemoToggle';
+import { isDemo, SAMPLE_WORKSPACES, TEMPLATE_NAMES } from '@/core/data/workspaces';
 import type { KgiMetric, Segment, ToolId, ToolLink, Workspace } from '@/core/types';
 import { isHttpUrl, TOOLS } from '@/core/tools';
 import { uid } from '@/lib/format';
 import { useApp, useWorkspace } from '@/store/app';
 import { useToast } from '@/store/toast';
-import { useSession, type Role } from '@/remote/session';
+import { REMOTE, useSession, type Role } from '@/remote/session';
 import { usersApi } from '@/remote/sync';
 
 export function Settings() {
@@ -156,7 +157,9 @@ function Workspaces() {
   const addWorkspace = useApp((s) => s.addWorkspace);
   const removeWorkspace = useApp((s) => s.removeWorkspace);
   const resetAll = useApp((s) => s.resetAll);
+  const restoreDemo = useApp((s) => s.restoreDemo);
   const notify = useToast((s) => s.notify);
+  const missingDemo = SAMPLE_WORKSPACES.filter((d) => !workspaces.some((w) => w.id === d.id)).length;
   const [template, setTemplate] = useState<Workspace['template']>('btob');
   const [name, setName] = useState('');
   const location = useLocation();
@@ -197,22 +200,35 @@ function Workspaces() {
         </div>
       </Card>
       <Card>
-        <CardHeader title="登録済みの支援先" />
+        <CardHeader title="登録済みの支援先" subtitle="「デモ」はサンプルデータの企業です。レポートの見本として残しておき、不要になったら削除できます。" actions={<DemoToggle />} />
         <ul className="flex flex-col px-5 pb-3">
           {workspaces.map((w) => (
             <li key={w.id} className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
               <span className="min-w-0 text-[13px]">
-                <span className="block truncate font-medium">{w.name}{w.id === activeId && <span className="ml-2 text-xs text-accent">表示中</span>}</span>
+                <span className="flex items-center gap-1.5 truncate font-medium">
+                  <span className="truncate">{w.name}</span>
+                  {isDemo(w) && <Badge tone="outline">デモ</Badge>}
+                  {w.id === activeId && <span className="text-xs text-accent">表示中</span>}
+                </span>
                 <span className="text-xs text-muted">{w.industry} · {w.enabledModules.length} モジュール</span>
               </span>
               {workspaces.length > 1 && <ConfirmButton label="削除" confirmLabel="削除する" onConfirm={() => { removeWorkspace(w.id); notify('企業を削除しました'); }} />}
             </li>
           ))}
         </ul>
-        <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
-          <span className="text-xs text-ink-2">すべての変更を破棄して、サンプルの初期状態に戻します。</span>
-          <ConfirmButton label="初期状態に戻す" confirmLabel="戻す" onConfirm={() => { resetAll(); notify('初期状態に戻しました'); }} />
-        </div>
+        {missingDemo > 0 && (
+          <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
+            <span className="text-xs text-ink-2">削除したデモ企業（{missingDemo} 社）を作り直します。実在の支援先には影響しません。</span>
+            <Button size="sm" onClick={() => notify(`デモ企業 ${restoreDemo()} 社を作り直しました`)}>デモ企業を復元</Button>
+          </div>
+        )}
+        {/* local single-user mode only: on the shared server this would delete every real client */}
+        {!REMOTE && (
+          <div className="flex items-center justify-between gap-3 border-t border-line px-5 py-3">
+            <span className="text-xs text-ink-2">すべての変更を破棄して、サンプルの初期状態に戻します。</span>
+            <ConfirmButton label="初期状態に戻す" confirmLabel="戻す" onConfirm={() => { resetAll(); notify('初期状態に戻しました'); }} />
+          </div>
+        )}
       </Card>
     </div>
   );
