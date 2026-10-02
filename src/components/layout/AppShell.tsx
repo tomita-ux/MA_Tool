@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import {
-  Blocks, Building2, Check, ChevronDown, Flag, LayoutDashboard, Plug, Lightbulb, Menu, Monitor, Moon, Route, Settings, SquareKanban, Sun, Target, Users, X,
+  Blocks, Building2, Check, ChevronDown, Flag, ListChecks, LayoutDashboard, Plug, Lightbulb, Menu, Monitor, Moon, Route, Settings, SquareKanban, Sun, Target, Users, X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -158,6 +158,7 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
       {canEdit && (
         <>
           <RailLabel>管理</RailLabel>
+          <NavItem to="/guide" icon={<ListChecks size={16} />}>進捗と手順</NavItem>
           <NavItem to="/connect" icon={<Plug size={16} />}>連携ハブ</NavItem>
           <NavItem to="/catalog" icon={<Blocks size={16} />}>モジュールカタログ</NavItem>
           <NavItem to="/settings" icon={<Settings size={16} />}>設定</NavItem>
@@ -204,8 +205,11 @@ function Topbar({ onMenu }: { onMenu: () => void }) {
           <Menu size={20} />
         </button>
         <WorkspaceSwitcher />
-        <div className="ml-auto flex items-center gap-2">
-          <SyncBadge />
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          {/* Badge's own inline-flex would win over a bare `hidden`, so hide through a wrapper */}
+          <span className="hidden sm:inline-flex">
+            <SyncBadge />
+          </span>
           <Segmented<RangeDays>
             label="期間"
             value={range}
@@ -266,13 +270,13 @@ function WorkspaceSwitcher() {
   };
 
   return (
-    <div ref={ref} className="relative min-w-0">
+    <div ref={ref} className="relative min-w-0 flex-1 sm:flex-none">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-surface-3"
+        className="flex w-full min-w-0 max-w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-surface-3 sm:w-auto"
       >
         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
           <Building2 size={15} />
@@ -280,7 +284,7 @@ function WorkspaceSwitcher() {
         <span className="min-w-0 leading-tight">
           <span className="flex items-center gap-1.5 truncate text-[13px] font-semibold text-ink">
             <span className="truncate">{ws.name}</span>
-            {isDemo(ws) && <Badge tone="outline">デモ</Badge>}
+            {isDemo(ws) && <Badge tone="outline" className="max-sm:!hidden">デモ</Badge>}
           </span>
           <span className="block truncate text-[11px] text-muted">{ws.industry}</span>
         </span>
@@ -364,7 +368,7 @@ function NoDataBanner() {
   const imports = useApp((s) => s.imports[s.activeId]);
   const canEdit = useCanEdit();
   const { pathname } = useLocation();
-  if (isDemo(ws) || Object.keys(imports ?? {}).length || ['/connect', '/settings', '/clients', '/catalog'].includes(pathname)) return null;
+  if (isDemo(ws) || Object.keys(imports ?? {}).length || ['/connect', '/settings', '/clients', '/catalog', '/guide'].includes(pathname)) return null;
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line bg-surface px-4 py-3 text-[13px]">
       <span className="font-medium">{ws.name} にはまだ実績データが取り込まれていません。</span>

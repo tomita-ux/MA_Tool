@@ -12,6 +12,7 @@ import { ModulePage } from './pages/ModulePage';
 import { NotFound } from './pages/NotFound';
 import { Plan } from './pages/Plan';
 import { Connect } from './pages/Connect';
+import { Guide } from './pages/Guide';
 import { Clients } from './pages/Clients';
 import { Settings } from './pages/Settings';
 import { Strategy } from './pages/Strategy';
@@ -31,6 +32,7 @@ const routes: RouteObject[] = [
       { path: 'clients', element: <AdminOnly><Clients /></AdminOnly> },
       { path: 'plan', element: <Plan /> },
       { path: 'connect', element: <AdminOnly><Connect /></AdminOnly> },
+      { path: 'guide', element: <AdminOnly><Guide /></AdminOnly> },
       { path: 'journey', element: <Journey /> },
       { path: 'audience', element: <Audience /> },
       { path: 'strategy', element: <Strategy /> },
