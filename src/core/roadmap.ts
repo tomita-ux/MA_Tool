@@ -16,7 +16,7 @@ export interface RoadmapItem {
   group: '基盤' | '連携' | '公開・運用' | '機能拡張' | '保守';
 }
 
-export const ROADMAP_UPDATED = '2026-10-02';
+export const ROADMAP_UPDATED = '2026-10-03';
 
 /** The local setup sheet (Claude Docs). */
 export const SETUP_DOC_URL = 'https://claude.ai/code/artifact/316061ef-4caf-4d8c-82a8-1b07f2389457';
@@ -34,8 +34,8 @@ export const ROADMAP: RoadmapItem[] = [
   { id: 'sheet', group: '公開・運用', status: 'done', owner: 'claude', date: '2026-10-02', title: 'ローカル設定手順書', detail: '各ツールの .env 設定（合言葉・暗号化キー・ポート）を 1 枚に', link: { label: '手順書を開く', href: SETUP_DOC_URL } },
 
   // ── doing ──
-  { id: 'redeploy', group: '公開・運用', status: 'doing', owner: 'claude', date: '2026-11-02', title: '公開版への反映', detail: 'デモ企業の分離と「進捗と手順」ページを公開版に反映。新しいセッションで「MA Compass を再公開して」と依頼（Cloudflare トークンの期限 11/2 まで）' },
-  { id: 'local-env', group: '連携', status: 'doing', owner: 'you', title: '各ツールの .env 設定', detail: '合言葉・暗号化キー・接続許可・sns-dashboard のポート 3003', link: { label: '手順書を開く', href: SETUP_DOC_URL } },
+  { id: 'redeploy', group: '公開・運用', status: 'done', owner: 'both', date: '2026-10-03', title: '公開版への反映', detail: 'デモ企業の分離と「進捗と手順」ページを公開版に反映' },
+  { id: 'local-env', group: '連携', status: 'doing', owner: 'you', title: '各ツールの .env 設定', detail: '合言葉・暗号化キー・接続許可・sns-dashboard のポート 3003（必要な PR はマージ済み）', link: { label: '手順書を開く', href: SETUP_DOC_URL } },
 
   // ── todo ──
   { id: 'clients', group: '公開・運用', status: 'todo', owner: 'you', title: '実在の支援先を登録してデータを取り込む', detail: '「データ取り込み手順」タブの順に進める', link: { label: '取り込み手順へ', href: '#/guide?tab=import' } },
@@ -50,5 +50,5 @@ export const ROADMAP: RoadmapItem[] = [
   { id: 'legacy-strategy', group: '機能拡張', status: 'todo', owner: 'claude', title: '旧形式の戦略ダッシュボードの作り直し', detail: 'sample-a〜d・vintage-sake-us の 5 件（必要なものだけ）' },
   { id: 'token', group: '保守', status: 'todo', owner: 'you', date: '2026-11-02', title: 'Cloudflare API トークンの期限', detail: '以降に公開作業をするときは作り直して環境変数を更新' },
   { id: 'gcp-quota', group: '保守', status: 'todo', owner: 'you', title: 'Google Cloud プロジェクト追加申請の結果確認', detail: '研修設計プラットフォーム用' },
-  { id: 'ads-type', group: '保守', status: 'todo', owner: 'claude', title: 'ads-bi-dashboard の既存の型エラー修正', detail: 'AccountStructureView.tsx' },
+  { id: 'ads-type', group: '保守', status: 'doing', owner: 'you', title: 'ads-bi-dashboard の既存の型エラー修正', detail: '修正済み。PR（tomita-ux/ads-bi-dashboard#2）のマージ待ち', link: { label: 'PR を開く', href: 'https://github.com/tomita-ux/ads-bi-dashboard/pull/2' } },
 ];
