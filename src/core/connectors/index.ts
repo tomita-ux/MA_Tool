@@ -466,6 +466,7 @@ export function fromStrategyAgents(input: Obj): ConnectorResult {
   const notes = [
     `戦略「${plan.project || '（名称なし）'}」を取り込みます：ペルソナ ${plan.personas.length}、チャネル ${plan.channels.length}、トリップワイヤー ${plan.tripwires.length}、100日プラン ${plan.todo.length} 項目。`,
   ];
+  if (input.legacy === true) notes.push('旧形式のダッシュボードから読み替えたデータです（トリップワイヤーは含まれません）。');
   const monitored = plan.tripwires.filter((t) => t.rule).length;
   if (monitored) notes.push(`トリップワイヤー ${plan.tripwires.length} 件のうち ${monitored} 件は指標と閾値付きのため、取り込み後すぐに実績データで自動監視されます。`);
   if (plan.tripwires.length > monitored) notes.push(`残り ${plan.tripwires.length - monitored} 件は文章のみのため、「経営戦略」画面で指標と閾値を設定すると自動監視されます。`);
