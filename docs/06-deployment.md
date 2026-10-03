@@ -238,6 +238,8 @@ npm run cf:dev                   # http://localhost:8788
    | sns-dashboard | `CORS_ALLOWED_ORIGINS=http://localhost:5173,https://ma-compass.pages.dev` |
 
 3. 各ツールに `BRIDGE_TOKEN` を設定し、同じ値を連携ハブのトークン欄に入力する（トークンは保存されず、再読み込みで消えます）
+
+   2〜3 と seo-dashboard の `SECRETS_KEY`、sns-dashboard の `PORT=3003` は、ツールを置いた PC で `node scripts/setup-local-env.mjs` を実行すると一括で書き込めます（合言葉とキーは画面に表示しない入力で受け取り、書き換える前の .env は `~/.ma-compass-env-backup/` に控える。ツールの場所は `MA_PROJECTS_DIR`、既定は `~/Documents/Claude/Projects`）。
 4. 初回の取得時に Chrome が「ローカル ネットワーク上のデバイスへのアクセス」の許可を求めたら「許可」する
 
 取り込んだデータは D1 に保存されるため、閲覧者（支援先の担当者）はツールがない環境でも最新の取り込み結果を見られます。取得（更新）できるのは管理者のみです。
