@@ -190,6 +190,19 @@ npx wrangler pages secret put ADMIN_EMAILS --project-name ma-compass         # �
 
 Pages の本番ブランチは `main`。`npm run cf:deploy` は `--branch main` 付きで本番に公開する（付けないとプレビュー URL への公開になる）。
 
+### 8.5.2 AI による解説（Claude API）
+「AI インサイト」画面の解説と質問応答は、サーバー側で Claude API（モデル `claude-opus-5-5`）を呼びます。API キーは Pages のシークレットに置き、画面には出しません。
+
+```bash
+npx wrangler pages secret put ANTHROPIC_API_KEY --project-name ma-compass   # 値は対話入力（チャット等に貼らない）
+npm run cf:deploy
+```
+
+- 解説の作成は管理者のみ。作成した解説は支援先ごとに D1（`ai_reports`）に保存され、閲覧者も読める
+- 質問は 1 人 1 日 30 回まで（`audit_log` で数える）
+- Claude に送るのは画面と同じ集計値（KPI・チャネル別・インサイト・トリップワイヤー）だけで、明細行は送らない
+- 安全上の理由で回答が断られた場合は、API 側で自動的に別のモデルで再実行する（`fallbacks: "default"`）
+
 ### 8.6 支援先の担当者（閲覧者）を追加する
 1. MA Compass → 設定 → ユーザーと権限 → メールアドレス・「閲覧者」・支援先を選んで追加
 2. Access のポリシー（8.4-3）にも同じメールアドレスを追加

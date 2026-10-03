@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { handleApi } from '../server/api';
+import { AiError, type AiClient } from '../server/ai';
 import type { D1Database, D1PreparedStatement, Env } from '../server/types';
 
 // D1-compatible adapter over node:sqlite so the real SQL (migrations + queries) is exercised.
@@ -37,7 +38,7 @@ const ws = (id: string) => ({ id, name: id });
 
 beforeEach(async () => {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync('migrations/0001_init.sql', 'utf8'));
+  for (const f of ['0001_init.sql', '0002_roadmap.sql', '0003_ai.sql']) db.exec(readFileSync(`migrations/${f}`, 'utf8'));
   env = { DB: d1(db), ADMIN_EMAILS: 'owner@example.com' };
   await call('PUT', '/api/workspaces/a', 'owner@example.com', { workspace: ws('a'), initiatives: [] });
   await call('PUT', '/api/workspaces/b', 'owner@example.com', { workspace: ws('b'), initiatives: [{ id: 'i1' }] });
@@ -108,3 +109,65 @@ describe('admin', () => {
     expect((await call('DELETE', '/api/users/admin2@example.com', 'admin2@example.com')).status).toBe(400);
   });
 });
+
+describe('roadmap edits (進捗と手順)', () => {
+  it('admins save, list and delete edits; viewers cannot', async () => {
+    await call('PUT', '/api/users/staff@client.example', 'owner@example.com', { role: 'viewer', workspaceIds: ['a'] });
+    expect((await call('GET', '/api/roadmap', 'staff@client.example')).status).toBe(403);
+    expect((await call('PUT', '/api/roadmap/x1', 'staff@client.example', { status: 'done' })).status).toBe(403);
+    let r = await call('PUT', '/api/roadmap/local-env', 'owner@example.com', { status: 'done', note: '4 ツール設定済み' });
+    expect(r.status).toBe(200);
+    r = await call('PUT', '/api/roadmap/rm-1', 'owner@example.com', { status: 'todo', custom: { title: '請求書の発行', detail: '', owner: 'you', group: '保守' } });
+    expect(r.status).toBe(200);
+    const list = (await (await call('GET', '/api/roadmap', 'owner@example.com')).json()) as { edits: { id: string; note?: string }[] };
+    expect(list.edits.map((e) => e.id).sort()).toEqual(['local-env', 'rm-1']);
+    expect(list.edits.find((e) => e.id === 'local-env')?.note).toBe('4 ツール設定済み');
+    expect((await call('DELETE', '/api/roadmap/rm-1', 'owner@example.com')).status).toBe(200);
+    expect(((await (await call('GET', '/api/roadmap', 'owner@example.com')).json()) as { edits: unknown[] }).edits).toHaveLength(1);
+  });
+
+  it('validates the edit', async () => {
+    expect((await call('PUT', '/api/roadmap/x', 'owner@example.com', { status: 'finished' })).status).toBe(400);
+    expect((await call('PUT', '/api/roadmap/x', 'owner@example.com', { custom: { title: '', owner: 'you', group: '保守' } })).status).toBe(400);
+    expect((await call('PUT', '/api/roadmap/bad%20id', 'owner@example.com', { status: 'done' })).status).toBe(400);
+  });
+});
+
+describe('AI explanations and Q&A', () => {
+  const calls: { system: string; user: string }[] = [];
+  const fake: AiClient = { complete: async (system, user) => (calls.push({ system, user }), user.includes('失敗') ? Promise.reject(new AiError('AI の呼び出しに失敗しました（500）。')) : '## 結論\nCV は目標の 90% です。') };
+  const ai = (method: string, path: string, email: string, body?: unknown, client: AiClient | null = fake) =>
+    handleApi(new Request(`https://app.example${path}`, { method, body: body === undefined ? undefined : JSON.stringify(body) }), env, as(email), client);
+
+  beforeEach(async () => {
+    calls.length = 0;
+    await call('PUT', '/api/users/staff@client.example', 'owner@example.com', { role: 'viewer', workspaceIds: ['a'] });
+  });
+
+  it('admin creates an explanation; the assigned viewer reads it, others cannot', async () => {
+    expect((await ai('POST', '/api/ai/explain/a', 'staff@client.example', { context: 'x' })).status).toBe(403);
+    const r = await ai('POST', '/api/ai/explain/a', 'owner@example.com', { context: '# 支援先: A' });
+    expect(r.status).toBe(200);
+    expect(calls[0].user).toContain('# 支援先: A');
+    const got = (await (await ai('GET', '/api/ai/explain/a', 'staff@client.example')).json()) as { text: string };
+    expect(got.text).toContain('結論');
+    expect((await ai('GET', '/api/ai/explain/b', 'staff@client.example')).status).toBe(403);
+  });
+
+  it('viewers can ask about their own client, with a daily cap', async () => {
+    expect((await ai('POST', '/api/ai/ask/a', 'staff@client.example', { context: 'x', question: '' })).status).toBe(400);
+    const r = await ai('POST', '/api/ai/ask/a', 'staff@client.example', { context: 'x', question: 'CPA は？' });
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as { remaining: number }).remaining).toBe(29);
+    for (let i = 0; i < 29; i++) await ai('POST', '/api/ai/ask/a', 'staff@client.example', { context: 'x', question: 'q' });
+    expect((await ai('POST', '/api/ai/ask/a', 'staff@client.example', { context: 'x', question: 'q' })).status).toBe(429);
+  });
+
+  it('reports a missing key and AI failures clearly', async () => {
+    expect((await ai('POST', '/api/ai/ask/a', 'owner@example.com', { context: 'x', question: 'q' }, null)).status).toBe(503);
+    const r = await ai('POST', '/api/ai/ask/a', 'owner@example.com', { context: 'x', question: '失敗させて' });
+    expect(r.status).toBe(502);
+    expect(((await r.json()) as { error: string }).error).toMatch(/失敗/);
+  });
+});
+
