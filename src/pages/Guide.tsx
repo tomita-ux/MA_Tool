@@ -315,8 +315,8 @@ const STEPS: Step[] = [
   {
     phase: '実績',
     title: '自然検索の実績（seo-dashboard）',
-    why: 'Search Console の表示回数・クリック。',
-    how: '「まとめて更新」。先に seo-dashboard で「GSC 同期」をしておく。',
+    why: 'Search Console の表示回数・クリックを、指名検索・対策キーワード・その他に分けて取り込みます。',
+    how: '「まとめて更新」。先に seo-dashboard で「GSC 同期」をしておく（キーワード別のデータもこのとき取得されます）。',
     where: { label: '連携ハブ', to: '/connect' },
     state: (_, imp) => imported(imp.seo),
   },

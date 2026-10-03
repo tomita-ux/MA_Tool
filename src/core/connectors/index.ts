@@ -195,15 +195,17 @@ export function fromSeoGsc(input: Obj): ConnectorResult {
 
 /** seo-dashboard GET /api/bridge — Search Console daily in bridge format. */
 export function fromSeoBridge(input: Obj): ConnectorResult {
+  const STAGES: StageId[] = ['interest', 'consideration', 'conversion'];
   const rows: BridgeRow[] = arr(input.records)
     .filter(isObj)
     .map((r) => {
       const m = isObj(r.metrics) ? r.metrics : {};
+      const stage = str(r.stage) as StageId;
       return {
         date: str(r.date).slice(0, 10),
         campaign: str(r.campaign) || 'Search Console（全体）',
         segment: '',
-        stage: 'consideration' as StageId,
+        stage: STAGES.includes(stage) ? stage : ('consideration' as StageId),
         metrics: { impressions: num(m.impressions), clicks: num(m.clicks), sessions: num(m.clicks) },
       };
     });
@@ -212,14 +214,16 @@ export function fromSeoBridge(input: Obj): ConnectorResult {
     return { kind: 'error', message: `指定期間の Search Console データがありません。${last ? `最終取得日は ${last} です。` : ''}seo-dashboard で「GSC 同期」を実行してください。` };
   }
   const domain = isObj(input.domain) ? str(input.domain.name) : '';
-  return {
-    kind: 'bridge',
-    tool: 'seo-dashboard',
-    moduleId: 'seo',
-    rows,
-    label: `seo-dashboard API${domain ? `（${domain}）` : ''}`,
-    notes: [`${rows.length} 日分の表示回数・クリックを取り込みます。`, 'Search Console には CV がないため、SEO の CV は GA4 側で計測してください。セッションはクリック数で代用しています。'],
-  };
+  const groups = [...new Set(rows.map((r) => r.campaign))];
+  const notes = [
+    input.grouping === 'query-group'
+      ? `${rows.length} 行（${groups.join('・')} × 日）の表示回数・クリックを取り込みます。`
+      : `${rows.length} 日分の表示回数・クリックを取り込みます。`,
+    'Search Console には CV がないため、SEO の CV は GA4 側で計測してください。セッションはクリック数で代用しています。',
+  ];
+  if (input.grouping === 'query-group' && Array.isArray(input.brandTerms)) notes.push(`指名検索の判定語：${arr(input.brandTerms).map(str).join('、') || '（なし）'}`);
+  for (const n of arr(input.notes)) notes.push(str(n));
+  return { kind: 'bridge', tool: 'seo-dashboard', moduleId: 'seo', rows, label: `seo-dashboard API${domain ? `（${domain}）` : ''}`, notes };
 }
 
 /** GET /api/rankings/matrix → keyword ranking table (latest rank per keyword). */

@@ -228,6 +228,17 @@ describe('Phase 2 bridge APIs', () => {
     if (empty.kind === 'error') expect(empty.message).toMatch(/2026-08-31/);
   });
 
+  it('seo-dashboard grouped bridge keeps keyword groups and their stage', () => {
+    const r = convertNative(j({ source: 'seo-dashboard', grouping: 'query-group', brandTerms: ['example'], records: [
+      { date: '2026-09-01', campaign: '指名検索', stage: 'conversion', metrics: { impressions: 80, clicks: 5 } },
+      { date: '2026-09-01', campaign: '対策キーワード', stage: 'consideration', metrics: { impressions: 60, clicks: 4 } },
+    ] }));
+    expect(r.kind).toBe('bridge');
+    if (r.kind !== 'bridge') return;
+    expect(r.rows.map((x) => [x.campaign, x.stage])).toEqual([['指名検索', 'conversion'], ['対策キーワード', 'consideration']]);
+    expect(r.notes.join()).toMatch(/指名検索の判定語：example/);
+  });
+
   it('sns-dashboard bridge → day × platform with engagements', () => {
     const r = convertNative(j({ module: 'sns', source: 'sns-dashboard', client: { name: 'デモ社' }, records: [
       { date: '2026-09-29', campaign: 'x', metrics: { impressions: 6993, reach: 3533, clicks: 42, engagements: 286, posts: 1 } },
