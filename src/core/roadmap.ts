@@ -30,7 +30,7 @@ export const ROADMAP: RoadmapItem[] = [
   { id: 'publish', group: '公開・運用', status: 'done', owner: 'both', date: '2026-10-02', title: 'Cloudflare で公開', detail: 'Google ログイン、管理者／閲覧者の 2 権限、D1 保存。https://ma-compass.pages.dev' },
   { id: 'demo', group: '基盤', status: 'done', owner: 'claude', date: '2026-10-02', title: 'デモ企業と実在の支援先を分離', detail: 'サンプル 3 社を「デモ」として残し、実在の支援先は取り込んだデータだけを表示' },
   { id: 'main', group: '保守', status: 'done', owner: 'both', date: '2026-10-02', title: '全リポジトリを main に取り込み', detail: '7 リポジトリの作業ブランチを main にマージ' },
-  { id: 'roadmap-edit', group: '公開・運用', status: 'doing', owner: 'you', title: '進捗一覧の画面編集', detail: '実装済み。MA_Tool の PR マージと再公開で、状態・メモの変更と項目の追加が使えるように' },
+  { id: 'roadmap-edit', group: '公開・運用', status: 'done', owner: 'claude', date: '2026-10-03', title: '進捗一覧の画面編集', detail: '各カードの鉛筆アイコンから状態・メモを変更、「項目を追加」で独自の項目を追加' },
   { id: 'guide', group: '公開・運用', status: 'done', owner: 'claude', date: '2026-10-02', title: '進捗と手順ページ', detail: 'プロジェクトの進捗ボードと、実データの取り込み手順（支援先ごとに自動判定）', link: { label: '取り込み手順を見る', href: '#/guide?tab=import' } },
   { id: 'sheet', group: '公開・運用', status: 'done', owner: 'claude', date: '2026-10-02', title: 'ローカル設定手順書', detail: '各ツールの .env 設定（合言葉・暗号化キー・ポート）を 1 枚に', link: { label: '手順書を開く', href: SETUP_DOC_URL } },
 
@@ -46,12 +46,12 @@ export const ROADMAP: RoadmapItem[] = [
   { id: 'autosync', group: '機能拡張', status: 'todo', owner: 'claude', title: 'データの自動取得', detail: '独自ドメイン・Tunnel の後、毎日自動で各ツールから取り込む' },
   { id: 'ads-more', group: '機能拡張', status: 'todo', owner: 'claude', title: 'Yahoo!広告・Meta広告の連携', detail: 'ads-bi-dashboard が未対応のため、当面は JSON 取り込み' },
   { id: 'journey-real', group: '機能拡張', status: 'todo', owner: 'claude', title: 'カスタマージャーニーの実データ化', detail: 'GA4 の BigQuery 連携で推定の経路を実際の経路に置き換え' },
-  { id: 'ai-text', group: '機能拡張', status: 'doing', owner: 'you', title: 'AI インサイトの文章化・質問応答', detail: '実装済み。MA_Tool の PR をマージ → Claude API キーをシークレットに登録 → 再公開で使えるように（docs/06 §8.5.2）', link: { label: 'AI インサイトを開く', href: '#/insights' } },
-  { id: 'seo-query', group: '機能拡張', status: 'doing', owner: 'you', title: 'SEO のキーワード別連携', detail: '実装済み（指名検索・対策キーワード・その他）。PR（seo-dashboard#2）をマージし、seo-dashboard で「GSC 同期」を実行', link: { label: 'PR を開く', href: 'https://github.com/tomita-ux/seo-dashboard/pull/2' } },
-  { id: 'legacy-strategy', group: '機能拡張', status: 'doing', owner: 'you', title: '旧形式の戦略ダッシュボードの取り込み', detail: '実装済み。PR（strategy-agents#2）をマージ後、npm run export:ma -- --all で全 9 件を書き出せる', link: { label: 'PR を開く', href: 'https://github.com/tomita-ux/strategy-agents/pull/2' } },
+  { id: 'ai-text', group: '機能拡張', status: 'doing', owner: 'you', title: 'AI インサイトの文章化・質問応答', detail: '公開済み。Claude API キーを Cloudflare のシークレットに登録し、再公開すると使えるように（docs/06 §8.5.2）', link: { label: 'AI インサイトを開く', href: '#/insights' } },
+  { id: 'seo-query', group: '機能拡張', status: 'doing', owner: 'you', title: 'SEO のキーワード別連携', detail: '公開済み。seo-dashboard で一度「GSC 同期」を実行すると、指名検索・対策キーワード・その他のデータがたまり始める' },
+  { id: 'legacy-strategy', group: '機能拡張', status: 'done', owner: 'claude', date: '2026-10-03', title: '旧形式の戦略ダッシュボードの取り込み', detail: 'strategy-agents で npm run export:ma -- --all を実行すると全 9 件を書き出せる' },
   { id: 'token', group: '保守', status: 'todo', owner: 'you', date: '2026-11-02', title: 'Cloudflare API トークンの期限', detail: '以降に公開作業をするときは作り直して環境変数を更新' },
   { id: 'gcp-quota', group: '保守', status: 'todo', owner: 'you', title: 'Google Cloud プロジェクト追加申請の結果確認', detail: '研修設計プラットフォーム用' },
-  { id: 'ads-type', group: '保守', status: 'doing', owner: 'you', title: 'ads-bi-dashboard の既存の型エラー修正', detail: '修正済み。PR（tomita-ux/ads-bi-dashboard#2）のマージ待ち', link: { label: 'PR を開く', href: 'https://github.com/tomita-ux/ads-bi-dashboard/pull/2' } },
+  { id: 'ads-type', group: '保守', status: 'done', owner: 'claude', date: '2026-10-03', title: 'ads-bi-dashboard の既存の型エラー修正', detail: '読み込み中カードの幅指定が無視されていた不具合も修正' },
 ];
 
 // ─── edits made on the screen (stored in D1, or in the browser in local mode) ───
