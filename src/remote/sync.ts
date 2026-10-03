@@ -111,3 +111,11 @@ export const roadmapApi = {
   save: (id: string, edit: Omit<RoadmapEdit, 'id' | 'updatedAt'>) => api<{ edit: RoadmapEdit }>(`/roadmap/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(edit) }),
   remove: (id: string) => api(`/roadmap/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };
+
+export const aiApi = {
+  latest: (workspaceId: string) => api<{ text: string | null; createdAt?: string }>(`/ai/explain/${encodeURIComponent(workspaceId)}`),
+  explain: (workspaceId: string, context: string) =>
+    api<{ text: string; createdAt?: string }>(`/ai/explain/${encodeURIComponent(workspaceId)}`, { method: 'POST', body: JSON.stringify({ context }) }),
+  ask: (workspaceId: string, context: string, question: string) =>
+    api<{ text: string; remaining: number }>(`/ai/ask/${encodeURIComponent(workspaceId)}`, { method: 'POST', body: JSON.stringify({ context, question }) }),
+};

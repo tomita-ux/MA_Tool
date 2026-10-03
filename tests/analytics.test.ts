@@ -241,3 +241,17 @@ describe('roadmap merge', () => {
   });
 });
 
+
+describe('AI context', () => {
+  it('summarises demo and empty real clients without throwing', async () => {
+    const { buildAiContext } = await import('@/core/analytics/aiContext');
+    const { workspaceFromTemplate } = await import('@/core/data/workspaces');
+    const demo = buildDataset(SAMPLE_WORKSPACES[0], 28);
+    const text = buildAiContext(demo, analyze(demo), {});
+    expect(text).toContain('デモ企業');
+    expect(text).toContain('## チャネル別');
+    expect(text.length).toBeLessThan(30_000);
+    const real = buildDataset(workspaceFromTemplate('btob', '実在社', 'ws_x'), 28);
+    expect(buildAiContext(real, analyze(real), {})).toContain('実データ（取り込み済み: なし）');
+  });
+});

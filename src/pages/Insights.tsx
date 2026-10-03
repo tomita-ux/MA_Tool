@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AiPanel } from '@/components/AiPanel';
 import { InsightCard, PRIORITY } from '@/components/InsightCard';
 import { EmptyState, PageHeader, cx } from '@/components/ui';
 import { KIND_LABEL, type InsightKind, type Priority } from '@/core/analytics/insights';
@@ -21,6 +22,7 @@ export function Insights() {
         title="AIインサイト"
         description="全チャネルのデータ・ジャーニー・セグメント分析・予算モデルから、改善提案を自動で抽出します。提案はそのまま施策として起票できます。"
       />
+      <AiPanel />
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2" role="group" aria-label="優先度で絞り込み">
           {(['all', 'high', 'medium', 'low'] as const).map((p) => (

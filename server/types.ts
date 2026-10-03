@@ -23,6 +23,8 @@ export interface Env {
   ADMIN_EMAILS?: string;
   /** local development only: act as this email without Access */
   DEV_AUTH_EMAIL?: string;
+  /** Claude API key for AI explanations (Pages secret) */
+  ANTHROPIC_API_KEY?: string;
 }
 
 export type Role = 'admin' | 'viewer';
