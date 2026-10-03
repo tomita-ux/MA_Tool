@@ -1,6 +1,7 @@
 import { SAMPLE_WORKSPACES } from '@/core/data/workspaces';
 import type { ModuleImport } from '@/core/data/dataset';
 import type { Initiative, Workspace } from '@/core/types';
+import type { RoadmapEdit } from '@/core/roadmap';
 import { setPersistence, useApp } from '@/store/app';
 import { SAMPLE_INITIATIVES } from '@/store/seed';
 import { useSession, type Role } from './session';
@@ -103,4 +104,10 @@ export const usersApi = {
   list: () => api<{ users: { email: string; role: Role; workspaceIds: string[] }[]; bootstrapAdmins: string[] }>('/users'),
   save: (email: string, role: Role, workspaceIds: string[]) => api(`/users/${encodeURIComponent(email)}`, { method: 'PUT', body: JSON.stringify({ role, workspaceIds }) }),
   remove: (email: string) => api(`/users/${encodeURIComponent(email)}`, { method: 'DELETE' }),
+};
+
+export const roadmapApi = {
+  list: () => api<{ edits: RoadmapEdit[] }>('/roadmap'),
+  save: (id: string, edit: Omit<RoadmapEdit, 'id' | 'updatedAt'>) => api<{ edit: RoadmapEdit }>(`/roadmap/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(edit) }),
+  remove: (id: string) => api(`/roadmap/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

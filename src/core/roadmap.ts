@@ -52,3 +52,82 @@ export const ROADMAP: RoadmapItem[] = [
   { id: 'gcp-quota', group: '保守', status: 'todo', owner: 'you', title: 'Google Cloud プロジェクト追加申請の結果確認', detail: '研修設計プラットフォーム用' },
   { id: 'ads-type', group: '保守', status: 'doing', owner: 'you', title: 'ads-bi-dashboard の既存の型エラー修正', detail: '修正済み。PR（tomita-ux/ads-bi-dashboard#2）のマージ待ち', link: { label: 'PR を開く', href: 'https://github.com/tomita-ux/ads-bi-dashboard/pull/2' } },
 ];
+
+// ─── edits made on the screen (stored in D1, or in the browser in local mode) ───
+
+export const ROADMAP_GROUPS: RoadmapItem['group'][] = ['基盤', '連携', '公開・運用', '機能拡張', '保守'];
+
+/** A change to a built-in item, or a whole item added on the screen (`custom`). */
+export interface RoadmapEdit {
+  id: string;
+  status?: RoadmapStatus;
+  /** free note shown under the item */
+  note?: string;
+  date?: string;
+  custom?: { title: string; detail: string; owner: RoadmapOwner; group: RoadmapItem['group'] };
+  deleted?: boolean;
+  /** ISO time of the edit */
+  updatedAt: string;
+}
+
+export type MergedItem = RoadmapItem & { note?: string; custom?: boolean; editedAt?: string };
+
+/**
+ * Built-in items + screen edits. An edit to a built-in item counts only when it is newer than the
+ * list's own update day — when Claude updates ROADMAP later, the code wins.
+ */
+export function mergeRoadmap(base: RoadmapItem[], edits: RoadmapEdit[], updated = ROADMAP_UPDATED): MergedItem[] {
+  const since = `${updated}T00:00:00+09:00`;
+  const byId = new Map(edits.map((e) => [e.id, e]));
+  const items: MergedItem[] = base.map((b) => {
+    const e = byId.get(b.id);
+    if (!e || e.custom || Date.parse(e.updatedAt) < Date.parse(since)) return b;
+    return {
+      ...b,
+      status: e.status ?? b.status,
+      date: e.status && e.status !== b.status ? (e.status === 'done' ? e.updatedAt.slice(0, 10) : b.status === 'done' ? undefined : b.date) : b.date,
+      note: e.note || undefined,
+      editedAt: e.updatedAt,
+    };
+  });
+  for (const e of edits) {
+    if (!e.custom || e.deleted || base.some((b) => b.id === e.id)) continue;
+    items.push({
+      id: e.id,
+      ...e.custom,
+      status: e.status ?? 'todo',
+      date: e.status === 'done' ? (e.date ?? e.updatedAt.slice(0, 10)) : e.date,
+      note: e.note || undefined,
+      custom: true,
+      editedAt: e.updatedAt,
+    });
+  }
+  return items;
+}
+
+const STATUSES: RoadmapStatus[] = ['done', 'doing', 'todo'];
+const OWNERS: RoadmapOwner[] = ['you', 'claude', 'both'];
+
+/** Server-side check of an edit sent from the screen. Returns the clean edit or an error message. */
+export function validateRoadmapEdit(id: string, raw: unknown): RoadmapEdit | string {
+  if (!raw || typeof raw !== 'object') return '内容を指定してください';
+  const r = raw as Record<string, unknown>;
+  const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : undefined);
+  if (r.status !== undefined && !STATUSES.includes(r.status as RoadmapStatus)) return 'status が不正です';
+  if (r.date !== undefined && r.date !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(String(r.date))) return 'date は YYYY-MM-DD で指定してください';
+  const edit: RoadmapEdit = { id, updatedAt: new Date().toISOString() };
+  if (r.status) edit.status = r.status as RoadmapStatus;
+  const note = str(r.note, 500);
+  if (note) edit.note = note;
+  if (r.date) edit.date = String(r.date);
+  if (r.deleted === true) edit.deleted = true;
+  if (r.custom !== undefined) {
+    const c = r.custom as Record<string, unknown>;
+    const title = str(c?.title, 120);
+    if (!title) return '項目名を入力してください';
+    if (!OWNERS.includes(c.owner as RoadmapOwner)) return '担当が不正です';
+    if (!ROADMAP_GROUPS.includes(c.group as RoadmapItem['group'])) return '分類が不正です';
+    edit.custom = { title, detail: str(c.detail, 1000) ?? '', owner: c.owner as RoadmapOwner, group: c.group as RoadmapItem['group'] };
+  }
+  return edit;
+}

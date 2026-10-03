@@ -1,5 +1,6 @@
 import { canRead, canWrite, resolveSession, verifyAccess, type Verifier } from './auth';
 import type { Env, Role, Session } from './types';
+import { validateRoadmapEdit } from '../src/core/roadmap';
 
 // MA Compass API (Cloudflare Pages Functions + D1) — docs/06-deployment.md §3.
 // Every route authenticates via Cloudflare Access and authorises against D1:
@@ -116,6 +117,35 @@ export async function handleApi(request: Request, env: Env, verify: Verifier = v
       }
       if (method === 'DELETE') {
         await env.DB.batch([env.DB.prepare('DELETE FROM imports WHERE workspace_id = ? AND module_id = ?').bind(id, moduleId), audit(env, session, 'import.delete', `${id}/${moduleId}`)]);
+        return json({ ok: true });
+      }
+    }
+
+    // ── 進捗と手順 (admin only) ──
+    if (path === '/roadmap' && method === 'GET') {
+      if (!canWrite(session)) return err(403, '管理者のみ利用できます');
+      const rows = await env.DB.prepare('SELECT data FROM roadmap_edits ORDER BY updated_at').all<{ data: string }>();
+      return json({ edits: rows.results.map((r) => JSON.parse(r.data)) });
+    }
+    m = path.match(/^\/roadmap\/([^/]+)$/);
+    if (m) {
+      if (!canWrite(session)) return err(403, '管理者のみ利用できます');
+      const id = decodeURIComponent(m[1]);
+      if (!ID.test(id)) return err(400, '不正な ID です');
+      if (method === 'PUT') {
+        const edit = validateRoadmapEdit(id, await readJson(request));
+        if (typeof edit === 'string') return err(400, edit);
+        await env.DB.batch([
+          env.DB.prepare(
+            `INSERT INTO roadmap_edits (id, data, updated_at, updated_by) VALUES (?, ?, datetime('now'), ?)
+             ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at, updated_by = excluded.updated_by`,
+          ).bind(id, JSON.stringify(edit), session.email),
+          audit(env, session, 'roadmap.save', id),
+        ]);
+        return json({ ok: true, edit });
+      }
+      if (method === 'DELETE') {
+        await env.DB.batch([env.DB.prepare('DELETE FROM roadmap_edits WHERE id = ?').bind(id), audit(env, session, 'roadmap.delete', id)]);
         return json({ ok: true });
       }
     }

@@ -37,7 +37,7 @@ const ws = (id: string) => ({ id, name: id });
 
 beforeEach(async () => {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync('migrations/0001_init.sql', 'utf8'));
+  for (const f of ['0001_init.sql', '0002_roadmap.sql']) db.exec(readFileSync(`migrations/${f}`, 'utf8'));
   env = { DB: d1(db), ADMIN_EMAILS: 'owner@example.com' };
   await call('PUT', '/api/workspaces/a', 'owner@example.com', { workspace: ws('a'), initiatives: [] });
   await call('PUT', '/api/workspaces/b', 'owner@example.com', { workspace: ws('b'), initiatives: [{ id: 'i1' }] });
@@ -108,3 +108,27 @@ describe('admin', () => {
     expect((await call('DELETE', '/api/users/admin2@example.com', 'admin2@example.com')).status).toBe(400);
   });
 });
+
+describe('roadmap edits (進捗と手順)', () => {
+  it('admins save, list and delete edits; viewers cannot', async () => {
+    await call('PUT', '/api/users/staff@client.example', 'owner@example.com', { role: 'viewer', workspaceIds: ['a'] });
+    expect((await call('GET', '/api/roadmap', 'staff@client.example')).status).toBe(403);
+    expect((await call('PUT', '/api/roadmap/x1', 'staff@client.example', { status: 'done' })).status).toBe(403);
+    let r = await call('PUT', '/api/roadmap/local-env', 'owner@example.com', { status: 'done', note: '4 ツール設定済み' });
+    expect(r.status).toBe(200);
+    r = await call('PUT', '/api/roadmap/rm-1', 'owner@example.com', { status: 'todo', custom: { title: '請求書の発行', detail: '', owner: 'you', group: '保守' } });
+    expect(r.status).toBe(200);
+    const list = (await (await call('GET', '/api/roadmap', 'owner@example.com')).json()) as { edits: { id: string; note?: string }[] };
+    expect(list.edits.map((e) => e.id).sort()).toEqual(['local-env', 'rm-1']);
+    expect(list.edits.find((e) => e.id === 'local-env')?.note).toBe('4 ツール設定済み');
+    expect((await call('DELETE', '/api/roadmap/rm-1', 'owner@example.com')).status).toBe(200);
+    expect(((await (await call('GET', '/api/roadmap', 'owner@example.com')).json()) as { edits: unknown[] }).edits).toHaveLength(1);
+  });
+
+  it('validates the edit', async () => {
+    expect((await call('PUT', '/api/roadmap/x', 'owner@example.com', { status: 'finished' })).status).toBe(400);
+    expect((await call('PUT', '/api/roadmap/x', 'owner@example.com', { custom: { title: '', owner: 'you', group: '保守' } })).status).toBe(400);
+    expect((await call('PUT', '/api/roadmap/bad%20id', 'owner@example.com', { status: 'done' })).status).toBe(400);
+  });
+});
+

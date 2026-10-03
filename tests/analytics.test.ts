@@ -220,3 +220,24 @@ describe('demo companies vs real clients', () => {
     expect(ds.all.every((r) => r.moduleId === 'google-ads')).toBe(true);
   });
 });
+
+describe('roadmap merge', () => {
+  it('applies newer screen edits, ignores stale ones, adds custom items', async () => {
+    const { mergeRoadmap } = await import('@/core/roadmap');
+    const base = [
+      { id: 'a', title: 'A', detail: '', status: 'todo' as const, owner: 'you' as const, group: '保守' as const },
+      { id: 'b', title: 'B', detail: '', status: 'doing' as const, owner: 'claude' as const, group: '保守' as const },
+    ];
+    const out = mergeRoadmap(base, [
+      { id: 'a', status: 'done', note: 'ok', updatedAt: '2026-10-05T03:00:00Z' },
+      { id: 'b', status: 'todo', updatedAt: '2026-09-01T00:00:00Z' }, // older than the list update → ignored
+      { id: 'c', status: 'doing', custom: { title: 'C', detail: 'd', owner: 'both', group: '連携' }, updatedAt: '2026-10-05T03:00:00Z' },
+      { id: 'd', deleted: true, custom: { title: 'D', detail: '', owner: 'you', group: '連携' }, updatedAt: '2026-10-05T03:00:00Z' },
+    ], '2026-10-03');
+    expect(out.find((i) => i.id === 'a')).toMatchObject({ status: 'done', note: 'ok', date: '2026-10-05' });
+    expect(out.find((i) => i.id === 'b')?.status).toBe('doing');
+    expect(out.find((i) => i.id === 'c')).toMatchObject({ title: 'C', status: 'doing', custom: true });
+    expect(out.some((i) => i.id === 'd')).toBe(false);
+  });
+});
+
