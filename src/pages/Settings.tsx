@@ -1,6 +1,6 @@
 import { ArrowUpRight, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, CardHeader, ConfirmButton, Field, PageHeader, cx, inputClass } from '@/components/ui';
 import { DemoToggle } from '@/components/DemoToggle';
 import { isDemo, SAMPLE_WORKSPACES, TEMPLATE_NAMES } from '@/core/data/workspaces';
@@ -15,6 +15,9 @@ import { usersApi } from '@/remote/sync';
 export function Settings() {
   const ws = useWorkspace();
   const remote = useSession((s) => s.mode === 'remote');
+  const location = useLocation();
+  // adding a client is its own screen: below the open company's forms it read as editing that company
+  if (location.hash === '#new') return <AddClient />;
   return (
     <div className="flex flex-col gap-5">
       <PageHeader eyebrow={ws.name} title="設定" description="支援先企業ごとの事業情報・KGI・予算・顧客セグメント・各ツールの接続先を管理します。ここでの値は全画面の分析に使われます。" />
@@ -154,53 +157,27 @@ function SegmentsForm({ ws }: { ws: Workspace }) {
 function Workspaces() {
   const workspaces = useApp((s) => s.workspaces);
   const activeId = useApp((s) => s.activeId);
-  const addWorkspace = useApp((s) => s.addWorkspace);
   const removeWorkspace = useApp((s) => s.removeWorkspace);
   const resetAll = useApp((s) => s.resetAll);
   const restoreDemo = useApp((s) => s.restoreDemo);
   const notify = useToast((s) => s.notify);
   const missingDemo = SAMPLE_WORKSPACES.filter((d) => !workspaces.some((w) => w.id === d.id)).length;
-  const [template, setTemplate] = useState<Workspace['template']>('btob');
-  const [name, setName] = useState('');
-  const location = useLocation();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (location.hash === '#new') {
-      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      ref.current?.querySelector('input')?.focus();
-    }
-  }, [location.hash]);
 
   return (
-    <div ref={ref} className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
+    <div>
       <Card>
-        <CardHeader title="支援先を追加" subtitle="テンプレートのモジュール構成・セグメントを初期値として作成します。" />
-        <div className="flex flex-col gap-3 px-5 pb-5">
-          <Field label="企業名" htmlFor="new-ws-name">
-            <input id="new-ws-name" className={inputClass} placeholder="例：株式会社サンプル" value={name} onChange={(e) => setName(e.target.value)} />
-          </Field>
-          <Field label="テンプレート" htmlFor="new-ws-tpl">
-            <select id="new-ws-tpl" className={inputClass} value={template} onChange={(e) => setTemplate(e.target.value as Workspace['template'])}>
-              {Object.entries(TEMPLATE_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </Field>
-          <Button
-            variant="primary"
-            className="self-start"
-            disabled={!name.trim()}
-            onClick={() => {
-              addWorkspace(template, name.trim());
-              setName('');
-              notify('支援先を追加し、切り替えました');
-            }}
-          >
-            <Plus size={14} /> 追加して切り替え
-          </Button>
-        </div>
-      </Card>
-      <Card>
-        <CardHeader title="登録済みの支援先" subtitle="「デモ」はサンプルデータの企業です。レポートの見本として残しておき、不要になったら削除できます。" actions={<DemoToggle />} />
+        <CardHeader
+          title="登録済みの支援先"
+          subtitle="「デモ」はサンプルデータの企業です。レポートの見本として残しておき、不要になったら削除できます。"
+          actions={
+            <div className="flex items-center gap-3">
+              <DemoToggle />
+              <Link to="/settings#new" className="inline-flex h-8 items-center gap-1 rounded-lg bg-accent px-3 text-xs font-medium text-accent-ink hover:bg-accent-hover">
+                <Plus size={13} /> 支援先を追加
+              </Link>
+            </div>
+          }
+        />
         <ul className="flex flex-col px-5 pb-3">
           {workspaces.map((w) => (
             <li key={w.id} className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-0">
@@ -317,6 +294,53 @@ function RefHelp({ tool, url }: { tool: (typeof TOOLS)[number]; url: string }) {
       )}
       （「{help.key}」の値。ツールを起動しておく）
     </p>
+  );
+}
+
+/** New client: name + template, then on to its settings to fill in KGI, budget and tool links. */
+function AddClient() {
+  const addWorkspace = useApp((s) => s.addWorkspace);
+  const notify = useToast((s) => s.notify);
+  const navigate = useNavigate();
+  const [template, setTemplate] = useState<Workspace['template']>('btob');
+  const [name, setName] = useState('');
+  useEffect(() => window.scrollTo(0, 0), []);
+  const add = () => {
+    if (!name.trim()) return;
+    addWorkspace(template, name.trim());
+    notify(`「${name.trim()}」を追加しました。続けて企業情報・セグメント・各ツールの接続先を入れて保存してください`);
+    navigate('/settings');
+    window.scrollTo(0, 0);
+  };
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader eyebrow="設定" title="支援先を追加" description="実在の支援先は、取り込んだデータだけを表示します。追加した後に、企業情報・KGI・予算と各ツールの接続先を入れます。" />
+      <Card className="max-w-xl">
+        <form
+          className="flex flex-col gap-3 p-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            add();
+          }}
+        >
+          <Field label="企業名" htmlFor="new-ws-name">
+            <input id="new-ws-name" autoFocus className={inputClass} placeholder="例：株式会社サンプル" value={name} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="テンプレート" htmlFor="new-ws-tpl">
+            <select id="new-ws-tpl" className={inputClass} value={template} onChange={(e) => setTemplate(e.target.value as Workspace['template'])}>
+              {Object.entries(TEMPLATE_NAMES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </Field>
+          <p className="text-xs text-muted">テンプレートは画面の構成（使うチャネル・顧客セグメントの初期値）です。後から設定で変えられます。</p>
+          <div className="flex items-center gap-3">
+            <Button type="submit" variant="primary" disabled={!name.trim()}>
+              <Plus size={14} /> 追加して企業情報の入力へ
+            </Button>
+            <Link to="/settings" className="text-[13px] text-ink-2 hover:underline">キャンセル</Link>
+          </div>
+        </form>
+      </Card>
+    </div>
   );
 }
 
