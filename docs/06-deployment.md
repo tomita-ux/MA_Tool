@@ -240,4 +240,11 @@ npm run cf:dev                   # http://localhost:8788
 3. 各ツールに `BRIDGE_TOKEN` を設定し、同じ値を連携ハブのトークン欄に入力する（トークンは保存されず、再読み込みで消えます）
 4. 初回の取得時に Chrome が「ローカル ネットワーク上のデバイスへのアクセス」の許可を求めたら「許可」する
 
+2・3 は `scripts/setup-local-env.mjs` でまとめて設定できる（ツールのフォルダは実行した場所とホームフォルダの下から自動で探す。既存の値は残し、合言葉を 4 ツール共通にし、seo-dashboard の `SECRETS_KEY` と sns-dashboard の `PORT=3003` も入れる）。
+
+```
+curl -fsSL https://raw.githubusercontent.com/tomita-ux/MA_Tool/main/scripts/setup-local-env.mjs -o setup-local-env.mjs
+node setup-local-env.mjs
+```
+
 取り込んだデータは D1 に保存されるため、閲覧者（支援先の担当者）はツールがない環境でも最新の取り込み結果を見られます。取得（更新）できるのは管理者のみです。
