@@ -285,7 +285,7 @@ const STEPS: Step[] = [
     phase: '準備',
     title: '各ツールの接続先を設定する',
     why: '連携ハブがどのツールのどの企業データを取りに行くかを決めます。',
-    how: '各ツールの URL（localhost:3000〜3003）と、ツール上のその企業の ID を入れる。',
+    how: '「既定の URL を入れる」で各ツールの URL（localhost:3000〜3003）を入れ、ID 欄の下の「一覧を開く」で確かめた ID を入れる。',
     where: { label: '設定 → 各ツールの接続先', to: '/settings#tools' },
     state: (ws) => {
       const n = TOOLS.filter((t) => ws.toolLinks?.[t.id]?.url && ws.toolLinks?.[t.id]?.ref).length;

@@ -8,6 +8,7 @@ import { buildDataset } from '@/core/data/dataset';
 import { SAMPLE_WORKSPACES } from '@/core/data/workspaces';
 import type { Workspace } from '@/core/types';
 import { getModule } from '@/modules';
+import { refListUrl, toolById } from '@/core/tools';
 
 const today = new Date('2026-09-26T00:00:00');
 const ws = (id: string) => structuredClone(SAMPLE_WORKSPACES.find((w) => w.id === id)!) as Workspace;
@@ -249,5 +250,16 @@ describe('Phase 2 bridge APIs', () => {
     expect(r.moduleId).toBe('sns');
     expect(r.rows.map((x) => x.stage)).toEqual(['interest', 'awareness']);
     expect(r.rows[0].metrics).toEqual({ impressions: 6993, engagements: 286, clicks: 42, sessions: 42 });
+  });
+});
+
+describe('tool links', () => {
+  it('gives each tool its own port and a page that lists client IDs', () => {
+    const ports = ['ga-dashboard', 'ads-bi-dashboard', 'seo-dashboard', 'sns-dashboard'].map((id) => toolById(id as never).defaultUrl);
+    expect(new Set(ports).size).toBe(4);
+    expect(refListUrl(toolById('sns-dashboard'), '')).toBe('http://localhost:3003/api/clients');
+    expect(refListUrl(toolById('seo-dashboard'), 'http://localhost:3002/ ')).toBe('http://localhost:3002/api/domains');
+    expect(refListUrl(toolById('seo-dashboard'), 'javascript:alert(1)')).toBeUndefined();
+    expect(refListUrl(toolById('strategy-agents'), '')).toBeUndefined();
   });
 });
