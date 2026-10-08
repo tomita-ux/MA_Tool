@@ -80,8 +80,8 @@ const TOOLS: ToolSpec[] = [
     feeds: 'SNS モジュール（プラットフォーム別の表示回数・エンゲージメント・サイトクリック）',
     moduleId: 'sns',
     exports: [
-      { label: 'ブリッジ API', how: 'GET http://localhost:3002/api/bridge/<clientId>?from=&to=' },
-      { label: 'API レスポンス', how: 'GET http://localhost:3002/api/metrics/clients/<clientId>/daily?metric=impressions&days=90' },
+      { label: 'ブリッジ API', how: 'GET http://localhost:3003/api/bridge/<clientId>?from=&to=' },
+      { label: 'API レスポンス', how: 'GET http://localhost:3003/api/metrics/clients/<clientId>/daily?metric=impressions&days=90' },
     ],
     policy: '投稿の承認・予約などの運用は sns-dashboard に残し、成果の数値を取り込みます。',
   },

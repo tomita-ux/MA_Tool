@@ -1,11 +1,11 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { ArrowUpRight, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Badge, Button, Card, CardHeader, ConfirmButton, Field, PageHeader, cx, inputClass } from '@/components/ui';
 import { DemoToggle } from '@/components/DemoToggle';
 import { isDemo, SAMPLE_WORKSPACES, TEMPLATE_NAMES } from '@/core/data/workspaces';
 import type { KgiMetric, Segment, ToolId, ToolLink, Workspace } from '@/core/types';
-import { isHttpUrl, TOOLS } from '@/core/tools';
+import { isHttpUrl, refListUrl, TOOLS } from '@/core/tools';
 import { uid } from '@/lib/format';
 import { useApp, useWorkspace } from '@/store/app';
 import { useToast } from '@/store/toast';
@@ -245,6 +245,8 @@ function ToolLinksForm({ ws }: { ws: Workspace }) {
     if (location.hash === '#tools') ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [location.hash]);
   const set = (id: ToolId, patch: Partial<ToolLink>) => setLinks((l) => ({ ...l, [id]: { url: '', ...l[id], ...patch } }));
+  const fillDefaults = () =>
+    setLinks((l) => Object.fromEntries([...Object.entries(l), ...TOOLS.filter((t) => t.defaultUrl && !l[t.id]?.url).map((t) => [t.id, { ...l[t.id], url: t.defaultUrl }])]));
   const save = () => {
     const bad = Object.entries(links).find(([, l]) => l?.url && !isHttpUrl(l.url));
     if (bad) return setError('URL は http:// または https:// で始めてください。');
@@ -259,7 +261,12 @@ function ToolLinksForm({ ws }: { ws: Workspace }) {
         <CardHeader
           title="各ツールの接続先（この支援先企業）"
           subtitle="既存ツール上でのこの企業の URL と ID です。チャネル画面の「詳しく見る」リンクと、連携ハブの API 取得に使います。"
-          actions={<Button size="sm" variant="primary" onClick={save}>保存</Button>}
+          actions={
+            <div className="flex gap-2">
+              <Button size="sm" onClick={fillDefaults}>既定の URL を入れる</Button>
+              <Button size="sm" variant="primary" onClick={save}>保存</Button>
+            </div>
+          }
         />
         <div className="overflow-x-auto px-5 pb-4">
           <table className="w-full min-w-[640px] text-[13px]">
@@ -279,6 +286,7 @@ function ToolLinksForm({ ws }: { ws: Workspace }) {
                   </td>
                   <td className="py-2 pr-3">
                     <input aria-label={`${t.name} の ID`} className={inputClass} placeholder={t.refLabel} value={links[t.id]?.ref ?? ''} onChange={(e) => set(t.id, { ref: e.target.value })} />
+                    <RefHelp tool={t} url={links[t.id]?.url ?? ''} />
                   </td>
                 </tr>
               ))}
@@ -289,6 +297,26 @@ function ToolLinksForm({ ws }: { ws: Workspace }) {
         </div>
       </Card>
     </div>
+  );
+}
+
+/** Where to find a client's ID on the tool. The list is the tool's own JSON, opened from this PC. */
+function RefHelp({ tool, url }: { tool: (typeof TOOLS)[number]; url: string }) {
+  const help = tool.refHelp;
+  if (!help) return null;
+  if ('text' in help) return <p className="mt-1 text-[11px] text-muted">{help.text}</p>;
+  const href = refListUrl(tool, url);
+  return (
+    <p className="mt-1 text-[11px] text-muted">
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-0.5 text-accent hover:underline">
+          一覧を開く <ArrowUpRight size={11} />
+        </a>
+      ) : (
+        '一覧を開く'
+      )}
+      （「{help.key}」の値。ツールを起動しておく）
+    </p>
   );
 }
 
