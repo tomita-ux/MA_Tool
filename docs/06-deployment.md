@@ -187,6 +187,7 @@ npx wrangler pages secret put ADMIN_EMAILS --project-name ma-compass         # �
 | URL | https://ma-compass.pages.dev（Google ログイン必須） |
 | D1 | `ma-compass`（ID は wrangler.toml に記入済み） |
 | Google ログイン | Google Cloud プロジェクト `GA-icloud` の OAuth クライアント（同意画面は外部・本番環境） |
+| シークレット | `ACCESS_TEAM_DOMAIN`・`ACCESS_AUD`・`ADMIN_EMAILS`・`ANTHROPIC_API_KEY`（2026-10-03 にダッシュボードから登録） |
 
 Pages の本番ブランチは `main`。`npm run cf:deploy` は `--branch main` 付きで本番に公開する（付けないとプレビュー URL への公開になる）。
 
