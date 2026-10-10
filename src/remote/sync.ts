@@ -171,6 +171,8 @@ export const aiApi = {
 export interface GoogleStatus {
   configured: boolean;
   ads: boolean;
+  /** Google Ads is read with ads-bi-dashboard's own credentials */
+  adsOwn: boolean;
   connected: boolean;
   email: string | null;
   connectedAt: string | null;

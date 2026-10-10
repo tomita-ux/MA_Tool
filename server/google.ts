@@ -37,6 +37,11 @@ export class GoogleError extends Error {
 
 export const googleConfigured = (env: Env) => Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.TOKEN_KEY);
 export const adsConfigured = (env: Env) => Boolean(env.GOOGLE_ADS_DEVELOPER_TOKEN);
+/**
+ * Google Ads API access is approved per Google Cloud project. When the project behind
+ * GOOGLE_CLIENT_ID is test-only, Ads can be read with ads-bi-dashboard's own (approved) OAuth credentials.
+ */
+export const adsOwnCredentials = (env: Env) => Boolean(env.GOOGLE_ADS_CLIENT_ID && env.GOOGLE_ADS_CLIENT_SECRET && env.GOOGLE_ADS_REFRESH_TOKEN);
 const adsVersion = (env: Env) => env.GOOGLE_ADS_API_VERSION || 'v23';
 
 // ─── crypto (AES-GCM for the stored token, HMAC for the OAuth state) ───
@@ -112,11 +117,11 @@ export function authUrl(env: Env, origin: string, state: string) {
   return `https://accounts.google.com/o/oauth2/v2/auth?${q}`;
 }
 
-async function tokenRequest(env: Env, params: Record<string, string>) {
+async function tokenRequest(env: Env, params: Record<string, string>, client = { id: env.GOOGLE_CLIENT_ID ?? '', secret: env.GOOGLE_CLIENT_SECRET ?? '' }) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: env.GOOGLE_CLIENT_ID ?? '', client_secret: env.GOOGLE_CLIENT_SECRET ?? '', ...params }),
+    body: new URLSearchParams({ client_id: client.id, client_secret: client.secret, ...params }),
   });
   const body = (await res.json().catch(() => ({}))) as Record<string, string>;
   if (!res.ok) {
@@ -158,6 +163,18 @@ export async function accessToken(env: Env): Promise<string> {
   if (!row) throw new GoogleError('Google と連携されていません。設定の「Google と連携」から連携してください', true);
   const t = await tokenRequest(env, { grant_type: 'refresh_token', refresh_token: await decrypt(env, row.token) });
   return t.access_token;
+}
+
+/** Token for Google Ads: ads-bi-dashboard's credentials when registered, else the connected account. */
+export async function adsAccessToken(env: Env, connected?: string): Promise<string> {
+  if (!adsOwnCredentials(env)) return connected ?? accessToken(env);
+  try {
+    const t = await tokenRequest(env, { grant_type: 'refresh_token', refresh_token: env.GOOGLE_ADS_REFRESH_TOKEN ?? '' }, { id: env.GOOGLE_ADS_CLIENT_ID ?? '', secret: env.GOOGLE_ADS_CLIENT_SECRET ?? '' });
+    return t.access_token;
+  } catch (e) {
+    // reconnecting the main account does not help here
+    throw new GoogleError(`Google 広告の認証（ads-bi-dashboard と同じ GOOGLE_ADS_REFRESH_TOKEN など）が使えません：${(e as Error).message}`);
+  }
 }
 
 // ─── Google APIs ───
@@ -389,7 +406,12 @@ export async function listSources(env: Env, token: string) {
       })
       .catch((e) => void out.errors.push(`Search Console：${(e as Error).message}`)),
   );
-  if (adsConfigured(env)) tasks.push(listAdsCustomers(env, token, out.ads, out.errors).catch((e) => void out.errors.push(`Google 広告：${(e as Error).message.replace(/^Google 広告：/, '')}`)));
+  if (adsConfigured(env))
+    tasks.push(
+      adsAccessToken(env, token)
+        .then((t) => listAdsCustomers(env, t, out.ads, out.errors))
+        .catch((e) => void out.errors.push(`Google 広告：${(e as Error).message.replace(/^Google 広告：/, '')}`)),
+    );
   await Promise.all(tasks);
   out.ga4.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
   out.gsc.sort((a, b) => a.site.localeCompare(b.site));
@@ -452,7 +474,8 @@ export interface SyncResult {
 
 export async function syncModule(env: Env, ws: Workspace, moduleId: GoogleModule, now = new Date()): Promise<SyncResult> {
   const g = ws.google ?? {};
-  const token = await accessToken(env);
+  // Ads may use its own credentials, so the connected account's token is only fetched for GA4 / Search Console
+  const token = moduleId === 'google-ads' ? '' : await accessToken(env);
   const p = period(DAYS, now);
   let result: ConnectorResult;
   let label: string;
@@ -475,7 +498,7 @@ export async function syncModule(env: Env, ws: Workspace, moduleId: GoogleModule
   } else {
     if (!g.ads?.customerId) throw new GoogleError('Google 広告のアカウントが選ばれていません');
     if (!/^\d+$/.test(g.ads.customerId) || (g.ads.loginCustomerId && !/^\d+$/.test(g.ads.loginCustomerId))) throw new GoogleError('Google 広告のアカウント ID の形式が正しくありません');
-    const data = await fetchAds(env, token, g.ads.customerId, g.ads.loginCustomerId, p);
+    const data = await fetchAds(env, await adsAccessToken(env), g.ads.customerId, g.ads.loginCustomerId || env.GOOGLE_ADS_LOGIN_CUSTOMER_ID?.replace(/-/g, '') || undefined, p);
     if (!data.records.length) throw new GoogleError(`${range} に Google 広告の配信実績がありません`);
     result = fromAdsBiBridge(data);
     label = `Google 広告 自動取得（${g.ads.name ?? g.ads.customerId}）`;
