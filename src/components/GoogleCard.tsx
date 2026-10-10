@@ -169,7 +169,13 @@ export function GoogleCard({ ws }: { ws: Workspace }) {
                 <Field
                   label="Google 広告のアカウント"
                   htmlFor="g-ads"
-                  hint={status.ads ? 'キャンペーン × 日の費用・CV・売上を取り込みます' : '開発者トークン（GOOGLE_ADS_DEVELOPER_TOKEN）を登録すると選べます'}
+                  hint={
+                    !status.ads
+                      ? '開発者トークン（GOOGLE_ADS_DEVELOPER_TOKEN）を登録すると選べます'
+                      : status.adsOwn
+                        ? 'キャンペーン × 日の費用・CV・売上を取り込みます（ads-bi-dashboard と同じ認証で読み取り）'
+                        : 'キャンペーン × 日の費用・CV・売上を取り込みます'
+                  }
                 >
                   <select id="g-ads" className={inputClass} value={form.ads} onChange={set('ads')} disabled={!status.ads}>
                     <option value="">使わない</option>

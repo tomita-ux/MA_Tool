@@ -269,6 +269,7 @@ MA Compass のサーバー（Pages Functions）が、連携した Google アカ�
    | `GOOGLE_CLIENT_SECRET` | 手順 2 のクライアント シークレット（シークレットとして登録） |
    | `GOOGLE_ADS_DEVELOPER_TOKEN` | 広告を使う場合。ads-bi-dashboard の `.env` と同じ値 |
    | `TOKEN_KEY` | 保存するトークンの暗号化キー（32 バイト・base64）。Claude が登録 |
+   | `GOOGLE_ADS_CLIENT_ID`・`GOOGLE_ADS_CLIENT_SECRET`・`GOOGLE_ADS_REFRESH_TOKEN`・`GOOGLE_ADS_LOGIN_CUSTOMER_ID` | 任意。ads-bi-dashboard の `.env` と同じ値。Google 広告 API の本番利用は Google Cloud プロジェクトごとに承認されるため、手順 2 のプロジェクトが「テスト用アカウントのみ」（`ACTION_NOT_PERMITTED`）のときは、承認済みの ads-bi-dashboard の認証情報で広告を読む |
 4. 再公開（`npm run cf:deploy`）。シークレットは公開時に反映される
 5. MA Compass の「設定 → Google から自動取得 → Google と連携」で、支援先の GA4・Search Console・Google 広告を見られる Google アカウントを選ぶ。アプリが未確認の旨の画面が出たら「詳細 → 移動」で続ける（社内利用のため確認申請は不要）
 

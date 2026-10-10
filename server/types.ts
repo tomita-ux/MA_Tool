@@ -34,6 +34,12 @@ export interface Env {
   GOOGLE_ADS_DEVELOPER_TOKEN?: string;
   /** e.g. v23 (default) */
   GOOGLE_ADS_API_VERSION?: string;
+  /** optional: read Google Ads with ads-bi-dashboard's OAuth client (its Cloud project holds the Ads API approval) */
+  GOOGLE_ADS_CLIENT_ID?: string;
+  GOOGLE_ADS_CLIENT_SECRET?: string;
+  GOOGLE_ADS_REFRESH_TOKEN?: string;
+  /** manager (MCC) account to send as login-customer-id when the chosen account has none */
+  GOOGLE_ADS_LOGIN_CUSTOMER_ID?: string;
 }
 
 export type Role = 'admin' | 'viewer';

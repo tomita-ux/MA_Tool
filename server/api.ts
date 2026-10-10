@@ -7,6 +7,7 @@ import type { Workspace } from '../src/core/types';
 import {
   accessToken,
   adsConfigured,
+  adsOwnCredentials,
   authUrl,
   connection,
   exchangeCode,
@@ -191,7 +192,7 @@ export async function handleApi(request: Request, env: Env, verify: Verifier = v
     // ── Google から直接取得（GA4・Search Console・Google 広告） ──
     if (path === '/google/status' && method === 'GET') {
       const c = googleConfigured(env) ? await connection(env) : null;
-      return json({ configured: googleConfigured(env), ads: adsConfigured(env), connected: Boolean(c), email: c?.email ?? null, connectedAt: c?.connected_at ?? null });
+      return json({ configured: googleConfigured(env), ads: adsConfigured(env), adsOwn: adsOwnCredentials(env), connected: Boolean(c), email: c?.email ?? null, connectedAt: c?.connected_at ?? null });
     }
     if (path === '/google/connect' || path === '/google/callback') {
       // browser navigations: answer with a redirect back to the settings screen

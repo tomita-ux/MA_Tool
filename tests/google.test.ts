@@ -209,6 +209,20 @@ describe('syncing a client', () => {
     expect(req.headers['login-customer-id']).toBe('999');
   });
 
+  it('reads Google Ads with ads-bi-dashboard credentials when they are registered', async () => {
+    env = { ...env, GOOGLE_ADS_DEVELOPER_TOKEN: 'devtoken', GOOGLE_ADS_CLIENT_ID: 'ads-cid', GOOGLE_ADS_CLIENT_SECRET: 'ads-cs', GOOGLE_ADS_REFRESH_TOKEN: 'ads-rt', GOOGLE_ADS_LOGIN_CUSTOMER_ID: '888-777-6666' };
+    await call('PUT', '/api/workspaces/acme', OWNER, { workspace: client({ ads: { customerId: '111' } }), initiatives: [] });
+    const seen = mockGoogle({
+      'oauth2.googleapis.com/token': (b) => ({ json: { access_token: b.client_id === 'ads-cid' && b.refresh_token === 'ads-rt' ? 'ads-at' : 'at' } }),
+      'googleAds:search': () => ({ json: { results: [{ segments: { date: '2026-10-01' }, campaign: { name: 'x' }, metrics: { impressions: '1', clicks: '1', costMicros: '1000000' } }] } }),
+    });
+    expect((await call('POST', '/api/google/sync/acme/google-ads', OWNER)).status).toBe(200);
+    const req = seen.find((x) => x.url.includes('googleAds:search'))!;
+    expect(req.headers.authorization).toBe('Bearer ads-at');
+    expect(req.headers['login-customer-id']).toBe('8887776666');
+    expect(seen.filter((x) => x.url.includes('oauth2')).map((x) => x.body.client_id)).toEqual(['ads-cid']);
+  });
+
   it('explains a disabled Google API and records the failure', async () => {
     mockGoogle({
       ...tokenEndpoint,
