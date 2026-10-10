@@ -148,6 +148,7 @@ function useApply() {
 
 // API tokens typed in this tab — kept in memory only (never saved), so they survive page moves but not a reload.
 const sessionTokens = new Map<string, string>();
+const COMMON_TOKEN = '*';
 
 type FetchOutcome = { ok: true; body: string } | { ok: false; message: string };
 
@@ -155,7 +156,7 @@ async function fetchBridge(apiUrl: string, token: string): Promise<FetchOutcome>
   try {
     const res = await fetch(apiUrl, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
     const body = await res.text();
-    if (res.status === 401) return { ok: false, message: 'トークンが必要か、一致しません（ツール側の BRIDGE_TOKEN）。' };
+    if (res.status === 401) return { ok: false, message: token ? '合言葉が違います（ツールの .env の BRIDGE_TOKEN と同じものを入れてください）。' : '合言葉を入れてください。' };
     if (!res.ok) return { ok: false, message: `API がエラーを返しました（${res.status}）：${body.slice(0, 200)}` };
     return { ok: true, body };
   } catch {
@@ -175,13 +176,22 @@ function BulkRefresh() {
     const link = ws.toolLinks?.[def.id];
     return def.bridgeUrl && link?.url && link.ref ? [{ def, url: def.bridgeUrl(link, 90) }] : [];
   });
-  const [tokens, setTokens] = useState<Record<string, string>>(() => Object.fromEntries(targets.map((t) => [t.def.id, sessionTokens.get(`${ws.id}:${t.def.id}`) ?? ''])));
+  const [tokens, setTokens] = useState<Record<string, string>>(() =>
+    Object.fromEntries(targets.map((t) => [t.def.id, sessionTokens.get(`${ws.id}:${t.def.id}`) ?? sessionTokens.get(COMMON_TOKEN) ?? ''])),
+  );
+  const [common, setCommon] = useState(() => sessionTokens.get(COMMON_TOKEN) ?? '');
   const [status, setStatus] = useState<Record<string, { tone: 'good' | 'bad' | 'busy'; text: string }>>({});
   const [running, setRunning] = useState(false);
 
   const setToken = (id: string, v: string) => {
     sessionTokens.set(`${ws.id}:${id}`, v);
     setTokens((t) => ({ ...t, [id]: v }));
+  };
+  // one passphrase for every tool (setup-local-env.mjs gives them the same one)
+  const setAll = (v: string) => {
+    setCommon(v);
+    sessionTokens.set(COMMON_TOKEN, v);
+    targets.forEach((t) => setToken(t.def.id, v));
   };
 
   const run = async () => {
@@ -231,6 +241,19 @@ function BulkRefresh() {
         )}
       </div>
       {targets.length > 0 && (
+        <label className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span className="w-36 shrink-0 font-medium">合言葉（全ツール共通）</span>
+          <input
+            type="password"
+            autoComplete="off"
+            className={cx(inputClass, 'h-8! w-56! text-xs!')}
+            placeholder="ここに入れると下の全ツールに入ります"
+            value={common}
+            onChange={(e) => setAll(e.target.value)}
+          />
+        </label>
+      )}
+      {targets.length > 0 && (
         <ul className="mt-3 flex flex-col gap-1.5">
           {targets.map(({ def }) => {
             const st = status[def.id];
@@ -238,11 +261,11 @@ function BulkRefresh() {
               <li key={def.id} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs">
                 <span className="w-36 shrink-0 font-medium">{def.name}</span>
                 <input
-                  aria-label={`${def.name} の API トークン（任意）`}
+                  aria-label={`${def.name} の合言葉`}
                   type="password"
                   autoComplete="off"
                   className={cx(inputClass, 'h-7! w-36! text-xs!')}
-                  placeholder="トークン（任意）"
+                  placeholder="合言葉"
                   value={tokens[def.id] ?? ''}
                   onChange={(e) => setToken(def.id, e.target.value)}
                 />
@@ -261,7 +284,7 @@ function BulkRefresh() {
           })}
         </ul>
       )}
-      <p className="mt-2 text-[11px] text-muted">トークンは保存されません（この画面を再読み込みすると消えます）。</p>
+      <p className="mt-2 text-[11px] text-muted">合言葉は保存されません（ページを再読み込みすると消えます）。ツールごとに違う合言葉にしている場合は、各行に入れてください。</p>
     </Card>
   );
 }
