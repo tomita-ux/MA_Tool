@@ -39,11 +39,11 @@ export const ROADMAP: RoadmapItem[] = [
   { id: 'local-env', group: '連携', status: 'done', owner: 'both', date: '2026-10-10', title: '各ツールの .env 設定', detail: 'スクリプトで合言葉・接続許可・暗号化キー・ポートを設定済み。Google 以外（SNS）と詳細画面のために使う', link: { label: '手順書を開く', href: SETUP_DOC_URL } },
 
   // ── todo ──
-  { id: 'clients', group: '公開・運用', status: 'doing', owner: 'you', title: '実在の支援先を登録してデータを取り込む', detail: '株式会社アイクラウドを登録し、GA4・SEO を取り込み済み。広告・SNS と 2 社目以降はこれから（「データ取り込み手順」タブの順に）', link: { label: '取り込み手順へ', href: '#/guide?tab=import' } },
+  { id: 'clients', group: '公開・運用', status: 'doing', owner: 'you', title: '実在の支援先を登録してデータを取り込む', detail: '株式会社アイクラウド：GA4・Search Console・Google 広告を Google から自動取得中。残りは SNS と、2 社目以降の登録（「データ取り込み手順」タブの順に）', link: { label: '取り込み手順へ', href: '#/guide?tab=import' } },
   { id: 'viewers', group: '公開・運用', status: 'todo', owner: 'both', title: '支援先の担当者（閲覧者）を追加', detail: 'ログイン許可にメールアドレスを追加（Claude）、設定の「ユーザー」で担当企業を割り当て（あなた）' },
   { id: 'brand', group: '公開・運用', status: 'todo', owner: 'you', title: 'ブランド名を決める', detail: 'Google ログイン画面のアプリ名にも反映' },
   { id: 'domain', group: '公開・運用', status: 'todo', owner: 'both', title: '独自ドメインと既存ツールの公開', detail: 'ブランド名決定後。独自ドメイン設定、Cloudflare Tunnel で各ツールを公開（docs/06 §8.7）' },
-  { id: 'autosync', group: '機能拡張', status: 'doing', owner: 'both', title: 'Google から直接取得（GA4・Search Console・Google 広告）', detail: '実装済み。Google Cloud で OAuth クライアントを作り Cloudflare に登録（あなた）→ 設定で「Google と連携」して支援先ごとに取得元を選ぶ。支援先を開くと 1 日 1 回自動で最新に（docs/06 §8.10）', link: { label: '設定を開く', href: '#/settings' } },
+  { id: 'autosync', group: '機能拡張', status: 'done', owner: 'both', date: '2026-10-10', title: 'Google から直接取得（GA4・Search Console・Google 広告）', detail: '手元のツールなしで取得。支援先を開くと 1 日 1 回自動で最新に、連携ハブの「今すぐ取得」で手動も可。広告は ads-bi-dashboard と同じ認証で読み取り（docs/06 §8.10）', link: { label: '連携ハブを開く', href: '#/connect' } },
   { id: 'tools-cloud', group: '機能拡張', status: 'todo', owner: 'claude', title: 'ダッシュボード本体を Cloudflare へ（第 2 段階）', detail: 'ads-bi・GA から順に Containers へ。seo・sns はデータベースを D1 へ移す改修が必要。Workers 有料プラン（月 5 ドル〜）' },
   { id: 'ads-more', group: '機能拡張', status: 'todo', owner: 'claude', title: 'Yahoo!広告・Meta広告の連携', detail: 'ads-bi-dashboard が未対応のため、当面は JSON 取り込み' },
   { id: 'journey-real', group: '機能拡張', status: 'todo', owner: 'claude', title: 'カスタマージャーニーの実データ化', detail: 'GA4 の BigQuery 連携で推定の経路を実際の経路に置き換え' },
