@@ -304,7 +304,10 @@ function AddClient() {
   const navigate = useNavigate();
   const [template, setTemplate] = useState<Workspace['template']>('btob');
   const [name, setName] = useState('');
-  useEffect(() => window.scrollTo(0, 0), []);
+  // block body: in newer Chrome scrollTo returns a Promise, which React would call as the cleanup
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const add = () => {
     if (!name.trim()) return;
     addWorkspace(template, name.trim());
