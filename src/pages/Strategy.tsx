@@ -178,8 +178,12 @@ function BudgetSimulator({ ds, curves }: { ds: Dataset; curves: Curve[] }) {
   const budget = ds.ws.monthlyBudget;
   const anim = useRef<ReturnType<typeof animate> | null>(null);
 
-  useEffect(() => setAlloc(current), [current]);
-  useEffect(() => setBudgetInput(String(Math.round(ds.ws.monthlyBudget / 10000))), [ds.ws.monthlyBudget]);
+  useEffect(() => {
+    setAlloc(current);
+  }, [current]);
+  useEffect(() => {
+    setBudgetInput(String(Math.round(ds.ws.monthlyBudget / 10000)));
+  }, [ds.ws.monthlyBudget]);
 
   const p0 = project(curves, current);
   const p1 = project(curves, alloc);

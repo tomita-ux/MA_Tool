@@ -263,3 +263,15 @@ describe('tool links', () => {
     expect(refListUrl(toolById('strategy-agents'), '')).toBeUndefined();
   });
 });
+
+describe('React effects', () => {
+  it('never return a value by accident (an expression body is called as the cleanup)', async () => {
+    const { readdirSync, readFileSync, statSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const files: string[] = [];
+    const walk = (d: string) => readdirSync(d).forEach((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : /\.tsx?$/.test(f) && files.push(join(d, f))));
+    walk('src');
+    const bad = files.flatMap((f) => (readFileSync(f, 'utf8').match(/use(Layout)?Effect\(\(\) => [^{\s]/g) ? [f] : []));
+    expect(bad).toEqual([]);
+  });
+});
