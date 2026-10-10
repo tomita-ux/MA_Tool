@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Badge, Button, Card, PageHeader, cx, inputClass } from '@/components/ui';
 import { convertNative, TOOL_LABEL, type ConnectorResult, type SourceTool } from '@/core/connectors';
 import { normalizeBridgeRows } from '@/core/data/bridge';
+import { isDemo } from '@/core/data/workspaces';
 import { getModule } from '@/modules';
 import { TOOLS as TOOL_DEFS, toolById, toolUrl } from '@/core/tools';
 import { useApp, useWorkspace } from '@/store/app';
@@ -172,10 +173,14 @@ function BulkRefresh() {
   const ws = useWorkspace();
   const apply = useApply();
   const notify = useToast((s) => s.notify);
-  const targets = TOOL_DEFS.flatMap((def) => {
-    const link = ws.toolLinks?.[def.id];
-    return def.bridgeUrl && link?.url && link.ref ? [{ def, url: def.bridgeUrl(link, 90) }] : [];
-  });
+  const demo = isDemo(ws);
+  // demo companies keep their sample data: pulling from the tools here would mix it into the showcase
+  const targets = demo
+    ? []
+    : TOOL_DEFS.flatMap((def) => {
+        const link = ws.toolLinks?.[def.id];
+        return def.bridgeUrl && link?.url && link.ref ? [{ def, url: def.bridgeUrl(link, 90) }] : [];
+      });
   const [tokens, setTokens] = useState<Record<string, string>>(() =>
     Object.fromEntries(targets.map((t) => [t.def.id, sessionTokens.get(`${ws.id}:${t.def.id}`) ?? sessionTokens.get(COMMON_TOKEN) ?? ''])),
   );
@@ -225,12 +230,16 @@ function BulkRefresh() {
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-semibold">まとめて更新</p>
           <p className="mt-0.5 text-xs text-ink-2">
-            {targets.length
-              ? `${ws.name} の接続先を設定済みのツール（${targets.length} 件）から、直近 90 日のデータをまとめて取り込みます。`
-              : 'ブリッジ API に対応したツールの接続先（URL と ID）を設定すると、ここからまとめて取り込めます。'}
+            {demo
+              ? `いま開いているのはデモ企業（${ws.name}）です。サンプルデータのため取り込みはできません。画面上部で実在の支援先に切り替えてください。`
+              : targets.length
+                ? `${ws.name} の接続先を設定済みのツール（${targets.length} 件）から、直近 90 日のデータをまとめて取り込みます。`
+                : 'ブリッジ API に対応したツールの接続先（URL と ID）を設定すると、ここからまとめて取り込めます。'}
           </p>
         </div>
-        {targets.length ? (
+        {demo ? (
+          <Badge tone="outline">デモ</Badge>
+        ) : targets.length ? (
           <Button size="sm" variant="primary" disabled={running} onClick={run}>
             <RefreshCw size={13} className={running ? 'animate-spin' : undefined} /> {running ? '取得中…' : 'すべて更新'}
           </Button>
@@ -284,7 +293,9 @@ function BulkRefresh() {
           })}
         </ul>
       )}
-      <p className="mt-2 text-[11px] text-muted">合言葉は保存されません（ページを再読み込みすると消えます）。ツールごとに違う合言葉にしている場合は、各行に入れてください。</p>
+      {targets.length > 0 && (
+        <p className="mt-2 text-[11px] text-muted">合言葉は保存されません（ページを再読み込みすると消えます）。ツールごとに違う合言葉にしている場合は、各行に入れてください。</p>
+      )}
     </Card>
   );
 }
