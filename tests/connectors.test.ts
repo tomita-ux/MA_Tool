@@ -8,7 +8,7 @@ import { buildDataset } from '@/core/data/dataset';
 import { SAMPLE_WORKSPACES } from '@/core/data/workspaces';
 import type { Workspace } from '@/core/types';
 import { getModule } from '@/modules';
-import { refListUrl, toolById } from '@/core/tools';
+import { gaProperty, refListUrl, toolById } from '@/core/tools';
 
 const today = new Date('2026-09-26T00:00:00');
 const ws = (id: string) => structuredClone(SAMPLE_WORKSPACES.find((w) => w.id === id)!) as Workspace;
@@ -261,6 +261,12 @@ describe('tool links', () => {
     expect(refListUrl(toolById('seo-dashboard'), 'http://localhost:3002/ ')).toBe('http://localhost:3002/api/domains');
     expect(refListUrl(toolById('seo-dashboard'), 'javascript:alert(1)')).toBeUndefined();
     expect(refListUrl(toolById('strategy-agents'), '')).toBeUndefined();
+  });
+
+  it('accepts a GA4 property as the number alone', () => {
+    expect(gaProperty(' 249785804 ')).toBe('properties/249785804');
+    expect(gaProperty('properties/249785804')).toBe('properties/249785804');
+    expect(toolById('ga-dashboard').bridgeUrl!({ url: 'http://localhost:3000', ref: '249785804' }, 90)).toContain('propertyId=properties%2F249785804');
   });
 });
 
