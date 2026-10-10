@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { handleApi } from '../server/api';
-import { brandTerms, decrypt, encrypt, gscToBridge, period, signState, termsRegex, verifyState } from '../server/google';
+import { adsFailure, brandTerms, decrypt, encrypt, gscToBridge, period, signState, termsRegex, verifyState } from '../server/google';
 import type { Env } from '../server/types';
 import { SAMPLE_WORKSPACES } from '@/core/data/workspaces';
 import type { Workspace } from '@/core/types';
@@ -238,3 +238,46 @@ describe('syncing a client', () => {
     expect((await call('POST', '/api/google/sync/nexa/ga4', OWNER)).status).toBe(400);
   });
 });
+
+describe('Google Ads account list', () => {
+  const adsError = (code: string) => ({
+    status: 403,
+    json: { error: { message: 'The caller does not have permission', details: [{ '@type': 'type.googleapis.com/google.ads.googleads.v23.errors.GoogleAdsFailure', errors: [{ errorCode: { authorizationError: code }, message: code }] }] } },
+  });
+
+  beforeEach(async () => {
+    await connect();
+    env = { ...env, GOOGLE_ADS_DEVELOPER_TOKEN: 'devtoken' };
+  });
+
+  it('reads the reason Google Ads puts in the error details', () => {
+    expect(adsFailure(adsError('DEVELOPER_TOKEN_NOT_APPROVED').json.error.details)).toContain('テスト用');
+    expect(adsFailure([{ errors: [{ errorCode: { quotaError: 'RESOURCE_EXHAUSTED' }, message: 'Too many' }] }])).toBe('RESOURCE_EXHAUSTED：Too many');
+    expect(adsFailure(undefined)).toBeUndefined();
+  });
+
+  it('says so when the connected Google account has no Ads accounts', async () => {
+    mockGoogle({
+      ...tokenEndpoint,
+      accountSummaries: () => ({ json: {} }),
+      'webmasters/v3/sites': () => ({ json: {} }),
+      listAccessibleCustomers: () => ({ json: {} }),
+    });
+    const body = (await (await call('GET', '/api/google/sources', OWNER)).json()) as { ads: unknown[]; errors: string[] };
+    expect(body.ads).toEqual([]);
+    expect(body.errors.join()).toContain('Google 広告を利用していません');
+  });
+
+  it('lists the accounts it could not read, with the reason', async () => {
+    mockGoogle({
+      ...tokenEndpoint,
+      accountSummaries: () => ({ json: {} }),
+      'webmasters/v3/sites': () => ({ json: {} }),
+      listAccessibleCustomers: () => ({ json: { resourceNames: ['customers/1234567890'] } }),
+      'googleAds:search': () => adsError('DEVELOPER_TOKEN_PROHIBITED'),
+    });
+    const body = (await (await call('GET', '/api/google/sources', OWNER)).json()) as { errors: string[] };
+    expect(body.errors).toEqual([expect.stringMatching(/123-456-7890 を読めません（この開発者トークンは別の Google Cloud プロジェクト/)]);
+  });
+});
+

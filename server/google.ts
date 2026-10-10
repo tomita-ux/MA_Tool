@@ -169,6 +169,26 @@ const API_HINT: [RegExp, string][] = [
   [/googleads|Google Ads API/i, 'Google Ads API'],
 ];
 
+// Google Ads puts the real reason in error.details[].errors[] (GoogleAdsFailure)
+const ADS_REASON: Record<string, string> = {
+  DEVELOPER_TOKEN_NOT_APPROVED: '開発者トークンが「テスト用」のため、本番の広告アカウントを読めません（Google 広告の API センターで基本アクセスを申請）',
+  DEVELOPER_TOKEN_PROHIBITED: 'この開発者トークンは別の Google Cloud プロジェクトで使われています。ads-bi-dashboard と同じプロジェクトの OAuth クライアントが必要です',
+  USER_PERMISSION_DENIED: '連携している Google アカウントにこの広告アカウントの権限がありません（MCC 経由の場合は MCC の権限が必要）',
+  NOT_ADS_USER: '連携している Google アカウントは Google 広告を利用していません。広告アカウントにこの Google アカウントを追加するか、広告を管理している Google アカウントで連携し直してください',
+  CUSTOMER_NOT_ENABLED: 'この広告アカウントは無効（停止・解約）です',
+};
+
+export function adsFailure(details: unknown): string | undefined {
+  for (const d of Array.isArray(details) ? details : []) {
+    for (const e of (d as { errors?: { errorCode?: Record<string, string>; message?: string }[] }).errors ?? []) {
+      const code = Object.values(e.errorCode ?? {})[0];
+      if (code) return ADS_REASON[code] ?? `${code}：${e.message ?? ''}`;
+      if (e.message) return e.message;
+    }
+  }
+  return undefined;
+}
+
 async function gapi<T>(url: string, token: string, init: RequestInit & { headers?: Record<string, string> } = {}): Promise<T> {
   const res = await fetch(url, { ...init, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', ...init.headers } });
   const text = await res.text();
@@ -179,6 +199,8 @@ async function gapi<T>(url: string, token: string, init: RequestInit & { headers
     /* non-JSON error page */
   }
   if (res.ok) return body as T;
+  const ads = adsFailure(body.error?.details);
+  if (ads) throw new GoogleError(`Google 広告：${ads}`);
   const msg = body.error?.message ?? text.slice(0, 200);
   if (/has not been used in project|is disabled|SERVICE_DISABLED/i.test(msg)) {
     const api = API_HINT.find(([re]) => re.test(url) || re.test(msg))?.[1] ?? 'API';
@@ -367,7 +389,7 @@ export async function listSources(env: Env, token: string) {
       })
       .catch((e) => void out.errors.push(`Search Console：${(e as Error).message}`)),
   );
-  if (adsConfigured(env)) tasks.push(listAdsCustomers(env, token, out.ads).catch((e) => void out.errors.push(`Google 広告：${(e as Error).message}`)));
+  if (adsConfigured(env)) tasks.push(listAdsCustomers(env, token, out.ads, out.errors).catch((e) => void out.errors.push(`Google 広告：${(e as Error).message.replace(/^Google 広告：/, '')}`)));
   await Promise.all(tasks);
   out.ga4.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
   out.gsc.sort((a, b) => a.site.localeCompare(b.site));
@@ -376,9 +398,14 @@ export async function listSources(env: Env, token: string) {
 }
 
 /** Accounts the Google account can reach — directly, or as the clients under a manager (MCC) account. */
-async function listAdsCustomers(env: Env, token: string, into: { customerId: string; name: string; loginCustomerId?: string }[]) {
+async function listAdsCustomers(env: Env, token: string, into: { customerId: string; name: string; loginCustomerId?: string }[], errors: string[]) {
   const r = await gapi<{ resourceNames?: string[] }>(`https://googleads.googleapis.com/${adsVersion(env)}/customers:listAccessibleCustomers`, token, { headers: adsHeaders(env) });
   const ids = (r.resourceNames ?? []).map((n) => n.split('/')[1]).slice(0, 15);
+  if (!ids.length) {
+    errors.push(`Google 広告：${ADS_REASON.NOT_ADS_USER}`);
+    return;
+  }
+  const failed = new Map<string, string>();
   await Promise.all(
     ids.map(async (id) => {
       try {
@@ -397,12 +424,23 @@ async function listAdsCustomers(env: Env, token: string, into: { customerId: str
         for (const c of children) {
           if (c.customerClient?.id && !c.customerClient.manager) into.push({ customerId: String(c.customerClient.id), name: c.customerClient.descriptiveName || String(c.customerClient.id), loginCustomerId: id });
         }
-      } catch {
-        /* accounts that cannot be read (cancelled, no access) are left out */
+      } catch (e) {
+        // accounts that cannot be read are left out; the reason is shown when nothing is left
+        failed.set(id, (e as Error).message.replace(/^Google 広告：/, ''));
       }
     }),
   );
+  if (!into.length && failed.size) {
+    const fmt = (id: string) => id.replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+    for (const [reason, list] of groupBy(failed)) errors.push(`Google 広告：${list.map(fmt).join('、')} を読めません（${reason}）`);
+  }
 }
+
+const groupBy = (m: Map<string, string>) => {
+  const out = new Map<string, string[]>();
+  for (const [id, reason] of m) out.set(reason, [...(out.get(reason) ?? []), id]);
+  return out;
+};
 
 // ─── sync one module for one client ───
 
