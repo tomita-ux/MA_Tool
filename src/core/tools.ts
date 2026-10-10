@@ -23,6 +23,11 @@ const q = (params: Record<string, string | undefined>) =>
     .filter(([, v]) => v)
     .map(([k, v]) => `${k}=${encodeURIComponent(v!)}`)
     .join('&');
+/** GA-Dashboard knows properties as `properties/123`; the number alone (as GA4 shows it) is accepted too. */
+export const gaProperty = (ref?: string) => {
+  const v = ref?.trim();
+  return v && /^\d+$/.test(v) ? `properties/${v}` : v;
+};
 const isoDaysAgo = (d: number) => {
   const t = new Date();
   t.setDate(t.getDate() - d);
@@ -45,8 +50,8 @@ export const TOOLS: ToolDef[] = [
       { id: 'journey', name: 'ジャーニー' },
       { id: 'content', name: 'コンテンツ' },
     ],
-    deepLink: (l, s) => `${base(l.url)}/?${q({ propertyId: l.ref, tab: s })}`,
-    bridgeUrl: (l, days) => `${base(l.url)}/api/bridge?${q({ propertyId: l.ref, startDate: isoDaysAgo(days), endDate: isoDaysAgo(1) })}`,
+    deepLink: (l, s) => `${base(l.url)}/?${q({ propertyId: gaProperty(l.ref), tab: s })}`,
+    bridgeUrl: (l, days) => `${base(l.url)}/api/bridge?${q({ propertyId: gaProperty(l.ref), startDate: isoDaysAgo(days), endDate: isoDaysAgo(1) })}`,
   },
   {
     id: 'ads-bi-dashboard',
