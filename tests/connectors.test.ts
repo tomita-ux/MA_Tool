@@ -281,3 +281,15 @@ describe('React effects', () => {
     expect(bad).toEqual([]);
   });
 });
+
+describe('opening the app', () => {
+  it('reopens the last client, else the first real one rather than a demo', async () => {
+    const { initialActive } = await import('@/remote/sync');
+    const real = { ...SAMPLE_WORKSPACES[0], id: 'acme', demo: false };
+    const list = [...SAMPLE_WORKSPACES, real];
+    expect(initialActive(list, 'lumiere')).toBe('lumiere');
+    expect(initialActive(list, null)).toBe('acme');
+    expect(initialActive(list, 'deleted-client')).toBe('acme');
+    expect(initialActive(SAMPLE_WORKSPACES, null)).toBe(SAMPLE_WORKSPACES[0].id);
+  });
+});
