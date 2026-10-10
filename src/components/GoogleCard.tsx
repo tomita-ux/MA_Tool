@@ -13,9 +13,9 @@ import { googleApi, type GoogleSourceList, type GoogleStatus } from '@/remote/sy
 // Settings → Google から自動取得: connect one Google account (admin), then pick where each client's
 // GA4 / Search Console / Google Ads data lives. The server does the fetching (docs/06-deployment.md §8.10).
 
-const list = (s: string) =>
+const list = (s: string, sep: RegExp) =>
   s
-    .split(/[,、\n]/)
+    .split(sep)
     .map((x) => x.trim())
     .filter(Boolean);
 
@@ -82,7 +82,8 @@ export function GoogleCard({ ws }: { ws: Workspace }) {
     const ads = sources?.ads.find((a) => a.customerId === customerId);
     const google: GoogleSources = {
       ga4: form.ga4 ? { property: form.ga4, name: ga4?.name ?? ws.google?.ga4?.name } : undefined,
-      gsc: form.gsc ? { site: form.gsc, brandTerms: list(form.brand), targetKeywords: list(form.targets) } : undefined,
+      // brand words: one word each, so spaces separate too; target keywords: one per line (may contain spaces)
+      gsc: form.gsc ? { site: form.gsc, brandTerms: list(form.brand, /[,、\s\u3000]/), targetKeywords: list(form.targets, /[\n,、]/) } : undefined,
       ads: customerId ? { customerId, loginCustomerId: loginCustomerId || undefined, name: ads?.name ?? ws.google?.ads?.name } : undefined,
     };
     update({ google });
@@ -190,7 +191,7 @@ export function GoogleCard({ ws }: { ws: Workspace }) {
                   </select>
                 </Field>
                 <Field label="指名検索とみなす語（追加分）" htmlFor="g-brand" hint={autoBrand.length ? `自動：${autoBrand.join('、')}（サイト名と企業名から）` : 'サイトを選ぶと、サイト名と企業名から自動で判定します'}>
-                  <input id="g-brand" className={inputClass} placeholder="例：サービス名、略称（読点区切り）" value={form.brand} onChange={set('brand')} />
+                  <input id="g-brand" className={inputClass} placeholder="例：サービス名、略称（読点かスペースで区切る）" value={form.brand} onChange={set('brand')} />
                 </Field>
                 <Field
                   label="対策キーワード"

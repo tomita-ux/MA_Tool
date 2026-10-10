@@ -1,4 +1,4 @@
-import { SAMPLE_WORKSPACES } from '@/core/data/workspaces';
+import { isDemo, SAMPLE_WORKSPACES } from '@/core/data/workspaces';
 import type { ModuleImport } from '@/core/data/dataset';
 import type { GoogleSources, Initiative, Workspace } from '@/core/types';
 import type { RoadmapEdit } from '@/core/roadmap';
@@ -16,6 +16,27 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) throw Object.assign(new Error((body as { error?: string }).error ?? `HTTP ${res.status}`), { status: res.status, reauth: Boolean((body as { reauth?: boolean }).reauth) });
   return body as T;
 }
+
+// the client last opened in this browser (a per-viewer convenience; D1 does not need it)
+const ACTIVE_KEY = 'ma-compass:active';
+const readActive = () => {
+  try {
+    return localStorage.getItem(ACTIVE_KEY);
+  } catch {
+    return null;
+  }
+};
+const rememberActive = (id: string) => {
+  try {
+    localStorage.setItem(ACTIVE_KEY, id);
+  } catch {
+    /* private window etc. */
+  }
+};
+
+/** Last opened client if still visible, else the first real client, else the first demo. */
+export const initialActive = (workspaces: Workspace[], remembered: string | null) =>
+  (workspaces.find((w) => w.id === remembered) ?? workspaces.find((w) => !isDemo(w)) ?? workspaces[0]).id;
 
 interface RemoteState {
   workspaces: Workspace[];
@@ -41,7 +62,10 @@ export async function bootRemote() {
       session.set({ status: 'error', error: '閲覧できる支援先がまだ割り当てられていません。管理者に連絡してください。' });
       return;
     }
-    useApp.setState({ workspaces: state.workspaces, initiatives: state.initiatives, imports: state.imports, activeId: state.workspaces[0].id, lastAdded: undefined });
+    useApp.setState({ workspaces: state.workspaces, initiatives: state.initiatives, imports: state.imports, activeId: initialActive(state.workspaces, readActive()), lastAdded: undefined });
+    useApp.subscribe((s, before) => {
+      if (s.activeId !== before.activeId) rememberActive(s.activeId);
+    });
     session.set({ status: 'ready' });
     if (me.role === 'admin') startSync();
   } catch (e) {
