@@ -11,6 +11,7 @@ import { useApp, useInitiatives, useWorkspace, type Theme } from '@/store/app';
 import { useAnalysis } from '@/store/hooks';
 import { useToast } from '@/store/toast';
 import { useCanEdit, useSession } from '@/remote/session';
+import { useGoogleAutoSync } from '@/remote/useGoogleAutoSync';
 import { isDemo, visibleWorkspaces } from '@/core/data/workspaces';
 
 
@@ -21,6 +22,7 @@ export function AppShell() {
   const location = useLocation();
   const message = useToast((s) => s.message);
   const mainRef = useRef<HTMLElement>(null);
+  useGoogleAutoSync();
   useEffect(() => {
     setNavOpen(false);
     mainRef.current?.scrollTo({ top: 0 });

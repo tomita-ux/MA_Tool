@@ -1,6 +1,6 @@
 import { SAMPLE_WORKSPACES } from '@/core/data/workspaces';
 import type { ModuleImport } from '@/core/data/dataset';
-import type { Initiative, Workspace } from '@/core/types';
+import type { GoogleSources, Initiative, Workspace } from '@/core/types';
 import type { RoadmapEdit } from '@/core/roadmap';
 import { setPersistence, useApp } from '@/store/app';
 import { SAMPLE_INITIATIVES } from '@/store/seed';
@@ -13,7 +13,7 @@ import { useSession, type Role } from './session';
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, { credentials: 'same-origin', ...init, headers: { 'content-type': 'application/json', ...init?.headers } });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error((body as { error?: string }).error ?? `HTTP ${res.status}`), { status: res.status });
+  if (!res.ok) throw Object.assign(new Error((body as { error?: string }).error ?? `HTTP ${res.status}`), { status: res.status, reauth: Boolean((body as { reauth?: boolean }).reauth) });
   return body as T;
 }
 
@@ -49,12 +49,29 @@ export async function bootRemote() {
   }
 }
 
+// last state known to match D1 (admins only); changes from here on are pushed
+let prev: ReturnType<typeof useApp.getState> | null = null;
+let flushNow: (() => Promise<void>) | null = null;
+
+/** Push any edits still waiting for the debounce (e.g. before asking the server to use them). */
+export const flushPending = () => flushNow?.() ?? Promise.resolve();
+
+/** Take data the server already saved (e.g. a Google sync) without pushing it back. */
+export function adoptRemote(workspace: Workspace, moduleId: string, imp: ModuleImport) {
+  useApp.setState((s) => ({
+    workspaces: s.workspaces.map((w) => (w.id === workspace.id ? workspace : w)),
+    imports: { ...s.imports, [workspace.id]: { ...s.imports[workspace.id], [moduleId]: imp } },
+  }));
+  if (prev) prev = useApp.getState();
+}
+
 function startSync() {
-  let prev = useApp.getState();
+  prev = useApp.getState();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let pending = false;
 
   const flush = async () => {
+    if (!prev) return;
     const next = useApp.getState();
     const before = prev;
     prev = next;
@@ -78,6 +95,7 @@ function startSync() {
     for (const id of prevIds) jobs.push(api(`/workspaces/${encodeURIComponent(id)}`, { method: 'DELETE' }));
     if (!jobs.length) return;
     useSession.getState().set({ sync: 'saving' });
+    // (prev already points at `next`, so a second flush while this one runs sends nothing twice)
     try {
       await Promise.all(jobs);
       useSession.getState().set({ sync: 'saved' });
@@ -86,8 +104,14 @@ function startSync() {
     }
   };
 
+  flushNow = async () => {
+    if (!pending) return;
+    clearTimeout(timer);
+    pending = false;
+    await flush();
+  };
   useApp.subscribe((s) => {
-    if (s.workspaces === prev.workspaces && s.initiatives === prev.initiatives && s.imports === prev.imports) return;
+    if (!prev || (s.workspaces === prev.workspaces && s.initiatives === prev.initiatives && s.imports === prev.imports)) return;
     pending = true;
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -118,4 +142,39 @@ export const aiApi = {
     api<{ text: string; createdAt?: string }>(`/ai/explain/${encodeURIComponent(workspaceId)}`, { method: 'POST', body: JSON.stringify({ context }) }),
   ask: (workspaceId: string, context: string, question: string) =>
     api<{ text: string; remaining: number }>(`/ai/ask/${encodeURIComponent(workspaceId)}`, { method: 'POST', body: JSON.stringify({ context, question }) }),
+};
+
+export interface GoogleStatus {
+  configured: boolean;
+  ads: boolean;
+  connected: boolean;
+  email: string | null;
+  connectedAt: string | null;
+}
+export interface GoogleSourceList {
+  ga4: { property: string; name: string; account: string }[];
+  gsc: { site: string; permission: string }[];
+  ads: { customerId: string; name: string; loginCustomerId?: string }[];
+  errors: string[];
+}
+export type GoogleModuleId = 'ga4' | 'seo' | 'google-ads';
+export type GoogleSyncStatus = Partial<Record<GoogleModuleId, { ok: boolean; message: string; at: string }>>;
+
+/** Modules this client has a Google source for. */
+export const googleModulesOf = (g?: GoogleSources): GoogleModuleId[] =>
+  [g?.ga4?.property && ('ga4' as const), g?.gsc?.site && ('seo' as const), g?.ads?.customerId && ('google-ads' as const)].filter((x): x is GoogleModuleId => Boolean(x));
+
+export const googleApi = {
+  status: () => api<GoogleStatus>('/google/status'),
+  sources: () => api<GoogleSourceList>('/google/sources'),
+  disconnect: () => api('/google', { method: 'DELETE' }),
+  syncStatus: (workspaceId: string) => api<{ status: GoogleSyncStatus }>(`/google/sync/${encodeURIComponent(workspaceId)}`),
+  /** Fetch one module from Google on the server and take the saved result into the app. */
+  sync: async (workspaceId: string, moduleId: GoogleModuleId) => {
+    await flushPending();
+    const r = await api<{ message: string; import: ModuleImport; workspace: Workspace }>(`/google/sync/${encodeURIComponent(workspaceId)}/${moduleId}`, { method: 'POST' });
+    adoptRemote(r.workspace, moduleId, r.import);
+    return r.message;
+  },
+  connectUrl: '/api/google/connect',
 };

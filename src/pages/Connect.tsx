@@ -1,5 +1,5 @@
 import { Check, ClipboardPaste, Copy, FileUp, RefreshCw, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, Card, PageHeader, cx, inputClass } from '@/components/ui';
 import { convertNative, TOOL_LABEL, type ConnectorResult, type SourceTool } from '@/core/connectors';
@@ -9,6 +9,9 @@ import { getModule } from '@/modules';
 import { TOOLS as TOOL_DEFS, toolById, toolUrl } from '@/core/tools';
 import { useApp, useWorkspace } from '@/store/app';
 import { useToast } from '@/store/toast';
+import { useSession } from '@/remote/session';
+import { googleApi, googleModulesOf, type GoogleModuleId, type GoogleSyncStatus } from '@/remote/sync';
+import { GOOGLE_MODULE_LABEL } from '@/remote/useGoogleAutoSync';
 
 // 連携ハブ — docs/05-integration-design.md §4. One card per existing tool, in the order of the
 // strategy → analysis → reach → search → AI search → communication flow.
@@ -96,6 +99,7 @@ export function Connect() {
         title="連携ハブ"
         description="個別に作ってきた 6 つのツールを 1 つにつなぎます。各ツールが出力している JSON をそのまま取り込めます（ツール側の改修は不要）。形式は自動で判別します。"
       />
+      <GoogleSync />
       <BulkRefresh />
       <QuickImport />
       <ol className="grid gap-4 xl:grid-cols-2">
@@ -107,6 +111,104 @@ export function Connect() {
         ブリッジ API はこの画面（ブラウザ）から各ツールへ直接取りに行きます。各ツールが動いている PC で開いてください（docs/06-deployment.md §8.9）。
       </p>
     </div>
+  );
+}
+
+const SOURCE_OF: Record<GoogleModuleId, (ws: ReturnType<typeof useWorkspace>) => string | undefined> = {
+  ga4: (ws) => ws.google?.ga4 && (ws.google.ga4.name ?? ws.google.ga4.property),
+  seo: (ws) => ws.google?.gsc?.site,
+  'google-ads': (ws) => ws.google?.ads && (ws.google.ads.name ?? ws.google.ads.customerId),
+};
+
+/** GA4 / Search Console / Google Ads read directly from Google on the server (no local tool needed). */
+function GoogleSync() {
+  const ws = useWorkspace();
+  const remote = useSession((s) => s.mode === 'remote');
+  const imports = useApp((s) => s.imports[ws.id]);
+  const notify = useToast((s) => s.notify);
+  const modules = googleModulesOf(ws.google);
+  const [saved, setSaved] = useState<GoogleSyncStatus>({});
+  const [live, setLive] = useState<Partial<Record<GoogleModuleId, { tone: 'good' | 'bad' | 'busy'; text: string }>>>({});
+  const [running, setRunning] = useState(false);
+  const demo = isDemo(ws);
+
+  useEffect(() => {
+    setLive({});
+    if (!remote || demo) return;
+    googleApi
+      .syncStatus(ws.id)
+      .then((r) => setSaved(r.status))
+      .catch(() => setSaved({}));
+  }, [ws.id, remote, demo]);
+
+  if (!remote || demo) return null;
+
+  const run = async () => {
+    setRunning(true);
+    let ok = 0;
+    for (const m of modules) {
+      setLive((l) => ({ ...l, [m]: { tone: 'busy', text: '取得中…' } }));
+      try {
+        const text = await googleApi.sync(ws.id, m);
+        setLive((l) => ({ ...l, [m]: { tone: 'good', text } }));
+        ok++;
+      } catch (e) {
+        setLive((l) => ({ ...l, [m]: { tone: 'bad', text: (e as Error).message } }));
+      }
+    }
+    setRunning(false);
+    notify(`${modules.length} 件中 ${ok} 件を Google から取得しました`);
+  };
+
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold">Google から自動取得</p>
+          <p className="mt-0.5 text-xs text-ink-2">
+            {modules.length
+              ? `${ws.name} の GA4・Search Console・Google 広告を、MA Compass が Google から直接取得します（直近 90 日）。手元のツールの起動や合言葉は不要で、支援先を開いたときに 1 日 1 回自動で最新になります。`
+              : 'GA4・Search Console・Google 広告は、Google から直接取得できます（手元のツールの起動が不要）。設定で取得元を選んでください。'}
+          </p>
+        </div>
+        {modules.length ? (
+          <Button size="sm" variant="primary" disabled={running} onClick={run}>
+            <RefreshCw size={13} className={running ? 'animate-spin' : undefined} /> {running ? '取得中…' : '今すぐ取得'}
+          </Button>
+        ) : (
+          <Link to="/settings" className="text-xs text-accent hover:underline">
+            取得元を設定
+          </Link>
+        )}
+      </div>
+      {modules.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {modules.map((m) => {
+            const st = live[m] ?? (saved[m] ? { tone: saved[m]!.ok ? 'good' : 'bad', text: saved[m]!.message } : undefined);
+            const at = imports?.[m]?.importedAt;
+            return (
+              <li key={m} className="flex flex-wrap items-center gap-2 rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs">
+                <span className="w-36 shrink-0 font-medium">{GOOGLE_MODULE_LABEL[m]}</span>
+                <span className="w-56 shrink-0 truncate text-ink-2" title={SOURCE_OF[m](ws)}>
+                  {SOURCE_OF[m](ws)}
+                </span>
+                <span
+                  className={cx(
+                    'flex min-w-0 flex-1 items-center gap-1',
+                    st?.tone === 'good' ? 'text-good-ink' : st?.tone === 'bad' ? 'text-critical-ink' : 'text-muted',
+                  )}
+                >
+                  {st?.tone === 'good' && <Check size={13} className="shrink-0" />}
+                  {st?.tone === 'bad' && <X size={13} className="shrink-0" />}
+                  {st?.text ?? '未取得'}
+                </span>
+                {at && <span className="shrink-0 text-muted">{new Date(at).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 取得</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
   );
 }
 

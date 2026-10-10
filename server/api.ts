@@ -2,6 +2,24 @@ import { canRead, canWrite, resolveSession, verifyAccess, type Verifier } from '
 import type { Env, Role, Session } from './types';
 import { validateRoadmapEdit } from '../src/core/roadmap';
 import { AiError, ASK_SYSTEM, createAi, EXPLAIN_SYSTEM, type AiClient } from './ai';
+import { isDemo } from '../src/core/data/workspaces';
+import type { Workspace } from '../src/core/types';
+import {
+  accessToken,
+  adsConfigured,
+  authUrl,
+  connection,
+  exchangeCode,
+  GOOGLE_MODULES,
+  GoogleError,
+  googleConfigured,
+  listSources,
+  saveConnection,
+  signState,
+  syncModule,
+  verifyState,
+  type GoogleModule,
+} from './google';
 
 // MA Compass API (Cloudflare Pages Functions + D1) — docs/06-deployment.md §3.
 // Every route authenticates via Cloudflare Access and authorises against D1:
@@ -40,6 +58,8 @@ const audit = (env: Env, s: Session, action: string, target?: string) =>
 
 const MAX_CONTEXT = 30_000;
 const ASK_PER_DAY = 30;
+/** viewers may refresh Google data only when it is older than this (admins any time) */
+const VIEWER_REFRESH_HOURS = 20;
 
 export async function handleApi(request: Request, env: Env, verify: Verifier = verifyAccess, aiOverride?: AiClient | null): Promise<Response> {
   const url = new URL(request.url);
@@ -165,6 +185,87 @@ export async function handleApi(request: Request, env: Env, verify: Verifier = v
       } catch (e) {
         if (e instanceof AiError) return err(502, e.message);
         throw e;
+      }
+    }
+
+    // ── Google から直接取得（GA4・Search Console・Google 広告） ──
+    if (path === '/google/status' && method === 'GET') {
+      const c = googleConfigured(env) ? await connection(env) : null;
+      return json({ configured: googleConfigured(env), ads: adsConfigured(env), connected: Boolean(c), email: c?.email ?? null, connectedAt: c?.connected_at ?? null });
+    }
+    if (path === '/google/connect' || path === '/google/callback') {
+      // browser navigations: answer with a redirect back to the settings screen
+      const back = (status: 'ok' | 'error', message?: string) =>
+        Response.redirect(`${url.origin}/#/settings?google=${status}${message ? `&message=${encodeURIComponent(message)}` : ''}`, 302);
+      if (method !== 'GET') return err(405, '対応していない操作です');
+      if (!canWrite(session)) return back('error', 'Google との連携は管理者のみ行えます');
+      if (!googleConfigured(env)) return back('error', 'Google 連携の設定（GOOGLE_CLIENT_ID・GOOGLE_CLIENT_SECRET・TOKEN_KEY）がまだです');
+      if (path === '/google/connect') return Response.redirect(authUrl(env, url.origin, await signState(env, session.email)), 302);
+      if (url.searchParams.get('error')) return back('error', 'Google での連携がキャンセルされました');
+      const code = url.searchParams.get('code') ?? '';
+      if (!code || !(await verifyState(env, url.searchParams.get('state') ?? '', session.email))) return back('error', '連携の確認に失敗しました。もう一度「Google と連携」を押してください');
+      try {
+        await saveConnection(env, session.email, await exchangeCode(env, code, url.origin));
+        await audit(env, session, 'google.connect').run();
+        return back('ok');
+      } catch (e) {
+        return back('error', e instanceof GoogleError ? e.message : 'Google との連携に失敗しました');
+      }
+    }
+    if (path === '/google' && method === 'DELETE') {
+      if (!canWrite(session)) return err(403, '管理者のみ利用できます');
+      await env.DB.batch([env.DB.prepare("DELETE FROM google_auth WHERE id = 'default'"), audit(env, session, 'google.disconnect')]);
+      return json({ ok: true });
+    }
+    if (path === '/google/sources' && method === 'GET') {
+      if (!canWrite(session)) return err(403, '管理者のみ利用できます');
+      try {
+        return json(await listSources(env, await accessToken(env)));
+      } catch (e) {
+        if (e instanceof GoogleError) return json({ error: e.message, reauth: e.reauth }, 502);
+        throw e;
+      }
+    }
+    m = path.match(/^\/google\/sync\/([^/]+)(?:\/([^/]+))?$/);
+    if (m) {
+      const id = decodeURIComponent(m[1]);
+      if (!ID.test(id)) return err(400, '不正なワークスペース ID です');
+      if (!canRead(session, id)) return err(403, 'この支援先は閲覧できません');
+      if (!m[2] && method === 'GET') {
+        const rows = await env.DB.prepare('SELECT module_id, ok, message, at FROM google_sync WHERE workspace_id = ?').bind(id).all<{ module_id: string; ok: number; message: string; at: string }>();
+        return json({ status: Object.fromEntries(rows.results.map((r) => [r.module_id, { ok: Boolean(r.ok), message: r.message, at: r.at }])) });
+      }
+      const moduleId = decodeURIComponent(m[2] ?? '') as GoogleModule;
+      if (!GOOGLE_MODULES.includes(moduleId) || method !== 'POST') return err(404, 'API が見つかりません');
+      const row = await env.DB.prepare('SELECT data FROM workspaces WHERE id = ?').bind(id).first<{ data: string }>();
+      if (!row) return err(404, 'ワークスペースがありません');
+      const ws = JSON.parse(row.data) as Workspace;
+      if (isDemo(ws)) return err(400, 'デモ企業はサンプルデータのため取得できません');
+      if (!canWrite(session)) {
+        const last = await env.DB.prepare('SELECT at FROM google_sync WHERE workspace_id = ? AND module_id = ?').bind(id, moduleId).first<{ at: string }>();
+        if (last && Date.parse(`${last.at.replace(' ', 'T')}Z`) > Date.now() - VIEWER_REFRESH_HOURS * 3600_000) return err(429, '最新のデータを取得済みです');
+      }
+      const status = (ok: boolean, message: string) =>
+        env.DB.prepare(
+          `INSERT INTO google_sync (workspace_id, module_id, ok, message, at) VALUES (?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(workspace_id, module_id) DO UPDATE SET ok = excluded.ok, message = excluded.message, at = excluded.at`,
+        ).bind(id, moduleId, ok ? 1 : 0, message);
+      try {
+        const r = await syncModule(env, ws, moduleId);
+        await env.DB.batch([
+          env.DB.prepare(
+            `INSERT INTO imports (workspace_id, module_id, data, updated_at) VALUES (?, ?, ?, datetime('now'))
+             ON CONFLICT(workspace_id, module_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`,
+          ).bind(id, moduleId, JSON.stringify(r.import)),
+          env.DB.prepare(`UPDATE workspaces SET data = ?, updated_at = datetime('now'), updated_by = ? WHERE id = ?`).bind(JSON.stringify(r.workspace), session.email, id),
+          status(true, r.message),
+          audit(env, session, 'google.sync', `${id}/${moduleId}`),
+        ]);
+        return json({ ok: true, message: r.message, import: r.import, workspace: r.workspace });
+      } catch (e) {
+        if (!(e instanceof GoogleError)) throw e;
+        await status(false, e.message).run();
+        return json({ error: e.message, reauth: e.reauth }, 502);
       }
     }
 

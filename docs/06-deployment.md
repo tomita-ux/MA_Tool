@@ -248,3 +248,42 @@ node setup-local-env.mjs
 ```
 
 取り込んだデータは D1 に保存されるため、閲覧者（支援先の担当者）はツールがない環境でも最新の取り込み結果を見られます。取得（更新）できるのは管理者のみです。
+
+### 8.10 Google から直接取得（GA4・Search Console・Google 広告）
+MA Compass のサーバー（Pages Functions）が、連携した Google アカウントの権限で GA4・Search Console・Google 広告を直接読み、支援先ごとの取り込みデータとして D1 に保存します。手元のツールの起動や合言葉は不要です。SNS は従来どおり sns-dashboard から取り込みます。
+
+**準備（最初に 1 回）**
+
+1. Google Cloud（プロジェクト `GA-icloud`）の「API とサービス → ライブラリ」で次を有効にする
+   - Google Analytics Data API
+   - Google Analytics Admin API（プロパティ一覧の取得）
+   - Google Search Console API
+   - Google Ads API（広告を使う場合）
+2. 「API とサービス → 認証情報 → 認証情報を作成 → OAuth クライアント ID」
+   - 種類：ウェブ アプリケーション、名前：`MA Compass データ取得`
+   - 承認済みのリダイレクト URI：`https://ma-compass.pages.dev/api/google/callback`
+3. Cloudflare の Pages プロジェクト `ma-compass` → 設定 → 変数とシークレット（本番）に登録
+   | 名前 | 値 |
+   |---|---|
+   | `GOOGLE_CLIENT_ID` | 手順 2 のクライアント ID |
+   | `GOOGLE_CLIENT_SECRET` | 手順 2 のクライアント シークレット（シークレットとして登録） |
+   | `GOOGLE_ADS_DEVELOPER_TOKEN` | 広告を使う場合。ads-bi-dashboard の `.env` と同じ値 |
+   | `TOKEN_KEY` | 保存するトークンの暗号化キー（32 バイト・base64）。Claude が登録 |
+4. 再公開（`npm run cf:deploy`）。シークレットは公開時に反映される
+5. MA Compass の「設定 → Google から自動取得 → Google と連携」で、支援先の GA4・Search Console・Google 広告を見られる Google アカウントを選ぶ。アプリが未確認の旨の画面が出たら「詳細 → 移動」で続ける（社内利用のため確認申請は不要）
+
+**支援先ごと**：同じ画面で GA4 のプロパティ・Search Console のサイト・Google 広告のアカウントを選んで保存。MCC（クライアント センター）配下のアカウントも一覧に出る。
+
+**取得の動き**
+
+| 項目 | 内容 |
+|---|---|
+| 期間 | 昨日（日本時間）までの直近 90 日 |
+| GA4 | ダイレクト・参照の流入のみ（他の流入は各チャネルで計上し二重計上を防ぐ）。セッション・エンゲージメント・キーイベント・収益 |
+| Search Console | 日別の合計を 指名検索（サイト名・企業名・追加した語を含む）／対策キーワード（設定した語、未設定なら取り込み済みの順位キーワード）／その他 に分ける。正規表現の絞り込みで 3 回に分けて取得し、非公開クエリ分は「その他」に入れて合計を一致させる |
+| Google 広告 | キャンペーン × 日の表示・クリック・費用・CV・CV 値（API v23。`GOOGLE_ADS_API_VERSION` で変更可） |
+| 更新 | 支援先を開いたとき、前回から 20 時間以上たっていれば自動（閲覧者が開いた場合も同じ）。連携ハブの「今すぐ取得」で手動 |
+| 権限 | 連携・取得元の設定は管理者のみ。閲覧者は 20 時間以上たったデータの更新だけを起こせる |
+| 保存 | リフレッシュトークンは `TOKEN_KEY` で AES-GCM 暗号化して D1（`google_auth`）。最後の取得結果は `google_sync` |
+
+無料プランには長時間の定期実行がないため「開いたときに更新」としている。ダッシュボード本体を Containers（有料）へ移す第 2 段階で、毎朝の定期取得に切り替える。

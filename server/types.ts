@@ -25,6 +25,15 @@ export interface Env {
   DEV_AUTH_EMAIL?: string;
   /** Claude API key for AI explanations (Pages secret) */
   ANTHROPIC_API_KEY?: string;
+  /** OAuth client for reading GA4 / Search Console / Google Ads directly (docs/06 §8.10) */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  /** 32 bytes, base64: encrypts the stored Google refresh token and signs the OAuth state */
+  TOKEN_KEY?: string;
+  /** Google Ads API developer token (same as ads-bi-dashboard's) */
+  GOOGLE_ADS_DEVELOPER_TOKEN?: string;
+  /** e.g. v23 (default) */
+  GOOGLE_ADS_API_VERSION?: string;
 }
 
 export type Role = 'admin' | 'viewer';

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, CardHeader, ConfirmButton, Field, PageHeader, cx, inputClass } from '@/components/ui';
 import { DemoToggle } from '@/components/DemoToggle';
+import { GoogleCard } from '@/components/GoogleCard';
 import { isDemo, SAMPLE_WORKSPACES, TEMPLATE_NAMES } from '@/core/data/workspaces';
 import type { KgiMetric, Segment, ToolId, ToolLink, Workspace } from '@/core/types';
 import { isHttpUrl, refListUrl, TOOLS } from '@/core/tools';
@@ -23,6 +24,7 @@ export function Settings() {
       <PageHeader eyebrow={ws.name} title="設定" description="支援先企業ごとの事業情報・KGI・予算・顧客セグメント・各ツールの接続先を管理します。ここでの値は全画面の分析に使われます。" />
       <CompanyForm key={`c-${ws.id}`} ws={ws} />
       <SegmentsForm key={`s-${ws.id}`} ws={ws} />
+      {remote && <GoogleCard key={`g-${ws.id}`} ws={ws} />}
       <ToolLinksForm key={`t-${ws.id}`} ws={ws} />
       {remote && <UsersCard />}
       <Workspaces />
