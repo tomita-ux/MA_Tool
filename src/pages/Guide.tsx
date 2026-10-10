@@ -9,6 +9,7 @@ import { uid } from '@/lib/format';
 import { TOOLS } from '@/core/tools';
 import type { Workspace } from '@/core/types';
 import type { ModuleImport } from '@/core/data/dataset';
+import { googleModulesOf } from '@/remote/sync';
 import { useApp, useWorkspace } from '@/store/app';
 
 // 進捗と手順 — what is done / in progress / next for the whole project, and the order to import real data.
@@ -283,8 +284,19 @@ const STEPS: Step[] = [
   },
   {
     phase: '準備',
+    title: 'Google から自動取得する取得元を選ぶ',
+    why: 'GA4・Search Console・Google 広告は、MA Compass が Google から直接取得します（手元のツールの起動が不要）。',
+    how: '設定の「Google から自動取得」で、最初に 1 回「Google と連携」し、この支援先の GA4 プロパティ・Search Console のサイト・Google 広告のアカウントを選んで保存する。',
+    where: { label: '設定 → Google から自動取得', to: '/settings' },
+    state: (ws) => {
+      const n = googleModulesOf(ws.google).length;
+      return n ? { state: 'done', note: `${n} 件選択済み` } : { state: 'todo' };
+    },
+  },
+  {
+    phase: '準備',
     title: '各ツールの接続先を設定する',
-    why: '連携ハブがどのツールのどの企業データを取りに行くかを決めます。',
+    why: '各チャネル画面の「詳しく見る」リンクと、SNS など Google 以外のデータの取り込みに使います。',
     how: '「既定の URL を入れる」で各ツールの URL（localhost:3000〜3003）を入れ、ID 欄の下の「一覧を開く」で確かめた ID を入れる。',
     where: { label: '設定 → 各ツールの接続先', to: '/settings#tools' },
     state: (ws) => {
@@ -306,17 +318,17 @@ const STEPS: Step[] = [
   },
   {
     phase: '実績',
-    title: '広告の実績（ads-bi-dashboard）',
+    title: '広告の実績（Google 広告）',
     why: '費用・CV・売上の土台。予算シミュレーターもこの数値を使います。',
-    how: '連携ハブの「まとめて更新」で取り込む（合言葉を入力）。',
+    how: 'Google 広告を取得元に選んでいれば自動。手動なら連携ハブの「今すぐ取得」、または ads-bi-dashboard から「まとめて更新」。',
     where: { label: '連携ハブ', to: '/connect' },
     state: (_, imp) => imported(imp['google-ads']),
   },
   {
     phase: '実績',
-    title: '自然検索の実績（seo-dashboard）',
+    title: '自然検索の実績（Search Console）',
     why: 'Search Console の表示回数・クリックを、指名検索・対策キーワード・その他に分けて取り込みます。',
-    how: '「まとめて更新」。先に seo-dashboard で「GSC 同期」をしておく（キーワード別のデータもこのとき取得されます）。',
+    how: 'Search Console を取得元に選んでいれば自動。手動なら連携ハブの「今すぐ取得」、または seo-dashboard で「GSC 同期」の後に「まとめて更新」。',
     where: { label: '連携ハブ', to: '/connect' },
     state: (_, imp) => imported(imp.seo),
   },
@@ -324,15 +336,15 @@ const STEPS: Step[] = [
     phase: '実績',
     title: 'SNS の実績（sns-dashboard）',
     why: '媒体別の表示回数・エンゲージメント・サイトクリック。',
-    how: '「まとめて更新」。',
+    how: '連携ハブの「まとめて更新」（sns-dashboard を起動し、合言葉を入力）。',
     where: { label: '連携ハブ', to: '/connect' },
     state: (_, imp) => imported(imp.sns),
   },
   {
     phase: '実績',
-    title: 'サイト全体（GA-Dashboard）',
+    title: 'サイト全体（GA4）',
     why: '広告・検索・SNS 以外の流入（ダイレクト・参照）だけを取り込み、二重計上を防ぎます。',
-    how: '「まとめて更新」。',
+    how: 'GA4 を取得元に選んでいれば自動。手動なら連携ハブの「今すぐ取得」、または GA-Dashboard から「まとめて更新」。',
     where: { label: '連携ハブ', to: '/connect' },
     state: (_, imp) => imported(imp.ga4),
   },
@@ -361,7 +373,7 @@ const STEPS: Step[] = [
 const PHASE_NOTE: Record<string, string> = {
   準備: '最初に 1 回',
   戦略: '戦略を作り直したとき',
-  実績: '週 1 回など定期的に（5〜8 は「まとめて更新」で一度に）',
+  実績: 'Google（GA4・Search Console・広告）は支援先を開くと 1 日 1 回自動。SNS は週 1 回など定期的に',
   確認: '取り込みのたび',
 };
 

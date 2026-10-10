@@ -1,34 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
+import { d1 } from './d1';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { handleApi } from '../server/api';
 import { AiError, type AiClient } from '../server/ai';
-import type { D1Database, D1PreparedStatement, Env } from '../server/types';
-
-// D1-compatible adapter over node:sqlite so the real SQL (migrations + queries) is exercised.
-function d1(db: DatabaseSync): D1Database {
-  const stmt = (sql: string, params: unknown[] = []): D1PreparedStatement => ({
-    bind: (...values) => stmt(sql, values),
-    first: async <T,>() => (db.prepare(sql).get(...(params as never[])) as T) ?? null,
-    all: async <T,>() => ({ results: db.prepare(sql).all(...(params as never[])) as T[] }),
-    run: async () => db.prepare(sql).run(...(params as never[])),
-  });
-  return {
-    prepare: (sql) => stmt(sql),
-    batch: async (list) => {
-      db.exec('BEGIN');
-      try {
-        const out = [];
-        for (const s of list) out.push(await s.run());
-        db.exec('COMMIT');
-        return out;
-      } catch (e) {
-        db.exec('ROLLBACK');
-        throw e;
-      }
-    },
-  };
-}
+import type { Env } from '../server/types';
 
 let env: Env;
 const as = (email: string | null) => async () => email;
@@ -38,7 +14,7 @@ const ws = (id: string) => ({ id, name: id });
 
 beforeEach(async () => {
   const db = new DatabaseSync(':memory:');
-  for (const f of ['0001_init.sql', '0002_roadmap.sql', '0003_ai.sql']) db.exec(readFileSync(`migrations/${f}`, 'utf8'));
+  for (const f of readdirSync('migrations').sort()) db.exec(readFileSync(`migrations/${f}`, 'utf8'));
   env = { DB: d1(db), ADMIN_EMAILS: 'owner@example.com' };
   await call('PUT', '/api/workspaces/a', 'owner@example.com', { workspace: ws('a'), initiatives: [] });
   await call('PUT', '/api/workspaces/b', 'owner@example.com', { workspace: ws('b'), initiatives: [{ id: 'i1' }] });

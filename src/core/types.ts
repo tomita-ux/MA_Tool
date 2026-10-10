@@ -139,6 +139,14 @@ export interface Workspace {
   aiDiagnosis?: AiDiagnosis;
   /** where this client lives in each existing tool (URL + the tool's own client/property id) */
   toolLinks?: Partial<Record<ToolId, ToolLink>>;
+  /** sources MA Compass reads directly from Google (server side, with the connected Google account) */
+  google?: GoogleSources;
+}
+
+export interface GoogleSources {
+  ga4?: { property: string; name?: string };
+  gsc?: { site: string; brandTerms?: string[]; targetKeywords?: string[] };
+  ads?: { customerId: string; loginCustomerId?: string; name?: string };
 }
 
 export type ToolId = 'strategy-agents' | 'ga-dashboard' | 'ads-bi-dashboard' | 'seo-dashboard' | 'seo-geo-aio-llmo' | 'sns-dashboard';
